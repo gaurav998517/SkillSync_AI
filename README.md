@@ -1,157 +1,388 @@
 <div align="center">
-  <h1>🚀 SkillSync AI</h1>
-  <p><strong>A smart web application that evaluates resume-job compatibility using NLP-based skill extraction and cosine similarity matching.</strong></p>
+
+# 🚀 SkillSync AI
+
+### **AI-Powered Resume Screening & Smart Job Recommendation Platform**
+
+<p align="center">
+Match resumes with <b>real-world job opportunities</b> using <b>Transformer Embeddings</b>, <b>NLP</b>, and <b>Cosine Similarity</b>.
+</p>
+
+![GitHub stars](https://img.shields.io/github/stars/Sagarchhikara/SkillSync_Ai?style=for-the-badge)
+![GitHub forks](https://img.shields.io/github/forks/Sagarchhikara/SkillSync_Ai?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![Node](https://img.shields.io/badge/Node.js-Express-success?style=for-the-badge)
+![React](https://img.shields.io/badge/React-Vite-blue?style=for-the-badge)
+![MongoDB](https://img.shields.io/badge/Database-MongoDB-brightgreen?style=for-the-badge)
+
+---
+
+*"Helping recruiters find the right candidate and helping candidates find the right job through AI."*
+
 </div>
 
 ---
 
-## 📖 Overview
+# 📖 Overview
 
-SkillSync AI helps streamline the recruitment and job-hunting process by analyzing uploaded resumes against job descriptions. By leveraging a robust backend NLP processing service, it extracts key technical skills, standardizes them, and calculates an accurate "Match Percentage" to help candidates and recruiters see at a glance how well a resume fits a role.
+SkillSync AI is an **AI-powered Resume Screening and Job Recommendation Platform** that intelligently matches candidates with relevant **real-world job opportunities**.
 
-## ✨ Features
+Unlike traditional Applicant Tracking Systems (ATS) that rely on exact keyword matching, SkillSync AI understands the **semantic meaning** of resumes and job descriptions using **Transformer Models**.
 
-### Backend (Node.js/Express)
-- **User Authentication:** Secure Signup and Login mechanisms with JWT-based sessions.
-- **Resume Processing:**
-  - Upload `.pdf` and `.docx` files easily via `multer`.
-  - Extracts text natively using `pdf-parse` and `mammoth`.
-  - Employs Dictionary-based NLP to extract technical skills and intelligently normalizes abbreviations (e.g., "NodeJS" -> "node.js").
-- **Job Management:**
-  - API support to create, fetch, and manage single or multiple jobs.
-  - Handy "seed" endpoint for testing to quickly populate the database with realistic dummy job posts.
-- **Smart Matching Engine:**
-  - Analyzes the overlap between extracted resume skills and job requirements.
-  - Generates a clear "Match Percentage" score.
-  - Categorizes skills into "Matched" and "Missing" for actionable insights.
-- **User Profiles & Saved Jobs:**
-  - Automatically saves parsed skills and education details to user profiles.
-  - Lets users bookmark their favorite job recommendations.
-
-### Frontend (React/Vite/Tailwind + shadcn/ui)
-- **Modern & Responsive UI:** Built with Tailwind CSS and shadcn/ui for a polished experience.
-- **Landing & Auth Pages:** Welcoming landing, Login, and Signup forms.
-- **Interactive Dashboard:**
-  - **Overview Stats:** Visualize total uploaded resumes, jobs matched, and average match score.
-  - **Resume Uploader:** Drag-and-drop interface for resumes with instant parsed skill display.
-  - **Job Matching Analysis:** A fully fleshed-out view ranking jobs against your resume. Features a circular "Match Score" ring and a comparative "You Have" vs "Missing" skill breakdown.
-  - **Job Management:** Simple form to create custom job postings or generate dummy data with one click.
-  - **Saved Jobs:** Easily view and manage bookmarked roles.
+The platform extracts technical skills, generates semantic embeddings, and calculates similarity using **Cosine Similarity**, producing highly accurate job recommendations along with detailed skill-gap analysis.
 
 ---
 
-## 🛠️ Tech Stack
+# ✨ Features
 
-### Frontend
-- **React.js** with **TypeScript** and **Vite** for fast, optimized builds.
-- **Tailwind CSS** & **shadcn/ui** for modern, responsive components.
-- **React Router** for seamless client-side routing.
-- **React Query** for efficient state management and data fetching.
+## 🤖 AI Powered Matching
 
-### Backend
-- **Node.js** & **Express.js** for handling robust RESTful API endpoints.
-- **MongoDB** with **Mongoose** for flexible schema-based data modeling.
-- **Multer**, **pdf-parse**, **mammoth** for sophisticated file uploads and parsing.
-- **Firebase Admin** for extended auth handling.
-
----
-
-## 🧠 Core Logic: How It Works
-
-1. **Resume Parsing:** Uploaded resumes hit the `POST /api/resume/upload` endpoint, where text is extracted depending on the file format (`pdf-parse` for PDFs, `mammoth` for DOCX).
-2. **Skill Extraction:** The text is cleaned and run against a vast technical skill dictionary using boundary regex matching. Variations are automatically standardized to a single source of truth.
-3. **Job Matching Algorithm:** `GET /api/match/auto/:userId` retrieves the user's latest parsed resume and runs it against system jobs. It calculates the intersection and difference of skill sets, applying the formula `(Total Matched / Total Required) * 100` to yield a match percentage.
-4. **UI Representation:** The React frontend visualizes these metrics with intuitive scorecards and color-coded skill pills, offering immediate gap analysis.
+- 📄 Resume Parsing (PDF & DOCX)
+- 🧠 NLP-based Skill Extraction
+- 🤖 Transformer Embeddings
+- 📊 Cosine Similarity Matching
+- 🎯 AI Job Recommendation Engine
+- 📈 Match Percentage Score
+- 🟢 Matched Skills
+- 🔴 Missing Skills
+- 💡 Explainable Recommendations
 
 ---
 
-## 📡 API Reference
+## 👨‍💻 User Features
+
+- Secure Authentication
+- Resume Upload
+- Automatic Skill Extraction
+- Browse Real Job Listings
+- Save Favorite Jobs
+- Personalized Dashboard
+- Track Resume Match Scores
+
+---
+
+## 💼 Job Management
+
+- Create New Jobs
+- View Available Jobs
+- Real Job Recommendations
+- Dummy Job Seeder for Testing
+- Bookmark Jobs
+
+---
+
+# 🧠 AI Pipeline
+
+```
+                 Resume
+                    │
+                    ▼
+          Resume Text Extraction
+                    │
+                    ▼
+           NLP Skill Extraction
+                    │
+                    ▼
+        Transformer Embeddings
+                    │
+                    ▼
+          Cosine Similarity Engine
+                    │
+                    ▼
+      Rank Real Job Opportunities
+                    │
+                    ▼
+      Match Score + Skill Analysis
+```
+
+---
+
+# ⚙️ How It Works
+
+### Step 1️⃣ Upload Resume
+
+Upload your resume in PDF or DOCX format.
+
+↓
+
+### Step 2️⃣ Resume Parsing
+
+The backend extracts text using
+
+- pdf-parse
+- mammoth
+
+↓
+
+### Step 3️⃣ NLP Processing
+
+The extracted text is cleaned and analyzed.
+
+The system identifies
+
+- Programming Languages
+- Frameworks
+- Libraries
+- Databases
+- Cloud Platforms
+- Tools
+- Technologies
+
+↓
+
+### Step 4️⃣ Transformer Embeddings
+
+Instead of comparing plain text, SkillSync AI converts both
+
+- Resume
+- Job Description
+
+into dense semantic vectors using **Transformer Models**.
+
+This allows the system to understand context and meaning rather than simple keyword overlap.
+
+↓
+
+### Step 5️⃣ Cosine Similarity
+
+The semantic vectors are compared using **Cosine Similarity**.
+
+A higher similarity score indicates a better match between the candidate and the job.
+
+↓
+
+### Step 6️⃣ Smart Recommendations
+
+The platform ranks all available jobs and recommends the most relevant ones.
+
+Each recommendation includes
+
+- Match Percentage
+- Matched Skills
+- Missing Skills
+- Overall Ranking
+
+---
+
+# 🚀 Why SkillSync AI?
+
+Traditional ATS systems only compare keywords.
+
+For example
+
+Resume
+
+```
+NodeJS
+```
+
+Job Description
+
+```
+Node.js
+```
+
+Many ATS systems fail to recognize these as the same skill.
+
+SkillSync AI goes beyond keyword matching by leveraging
+
+- Transformer Models
+- NLP
+- Cosine Similarity
+
+to understand the semantic meaning of both resumes and job descriptions.
+
+This results in:
+
+✅ Better recommendations
+
+✅ Higher matching accuracy
+
+✅ Explainable AI
+
+✅ Reduced recruiter effort
+
+---
+
+# 🛠 Tech Stack
+
+## Frontend
+
+- React.js
+- TypeScript
+- Vite
+- Tailwind CSS
+- shadcn/ui
+- React Router
+- React Query
+
+---
+
+## Backend
+
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- Firebase Authentication
+- Multer
+- pdf-parse
+- mammoth
+
+---
+
+## AI / Machine Learning
+
+- Natural Language Processing (NLP)
+- Transformer Models
+- Semantic Embeddings
+- Cosine Similarity
+- Skill Normalization
+- AI Recommendation Engine
+
+---
+
+# 📡 REST APIs
 
 ### Authentication
-- `POST /api/auth/signup` - Create a new account
-- `POST /api/auth/login` - Authenticate user
 
-### Resumes
-- `POST /api/resume/upload` - Upload resume (multipart/form-data), extract text & skills
+```
+POST /api/auth/signup
+
+POST /api/auth/login
+```
+
+---
+
+### Resume
+
+```
+POST /api/resume/upload
+```
+
+---
 
 ### Jobs
-- `POST /api/jobs` - Create a job
-- `GET /api/jobs` - Retrieve all jobs
-- `POST /api/jobs/seed` - Clear and seed dummy jobs
+
+```
+GET /api/jobs
+
+POST /api/jobs
+
+POST /api/jobs/seed
+```
+
+---
 
 ### Matching
-- `GET /api/match/auto/:userId` - Auto-match latest resume against all jobs
-- `GET /api/match/:resumeId/:jobId` - Detailed match metric for a specific job
+
+```
+GET /api/match/auto/:userId
+
+GET /api/match/:resumeId/:jobId
+```
+
+---
 
 ### Users
-- `GET /api/users/:userId/profile` - Retrieve user profile and skills
-- `POST /api/users/:userId/jobs/:jobId` - Bookmark a job
-- `GET /api/users/:userId/jobs` - Retrieve bookmarked jobs
-- `DELETE /api/users/:userId/jobs/:jobId` - Remove bookmarked job
+
+```
+GET /api/users/:userId/profile
+
+POST /api/users/:userId/jobs/:jobId
+
+GET /api/users/:userId/jobs
+
+DELETE /api/users/:userId/jobs/:jobId
+```
 
 ---
 
-## 🚀 Getting Started
+# 🚀 Installation
 
-### Prerequisites
-- Node.js (v16+)
-- MongoDB Atlas account (or local MongoDB)
-- Firebase Project Setup (for extended Auth)
+## Clone Repository
 
-### Local Installation
+```bash
+git clone https://github.com/Sagarchhikara/SkillSync_Ai.git
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Sagarchhikara/SkillSync_Ai.git
-   cd SkillSync_Ai
-   ```
-
-2. **Backend Setup:**
-   - The backend runs from the root of the project.
-   - Install dependencies:
-     ```bash
-     npm install
-     ```
-   - Create a `.env` file in the root directory and add:
-     ```env
-     PORT=5000
-     MONGO_URI=your_mongodb_connection_string
-     JWT_SECRET=your_jwt_secret
-     FIREBASE_PROJECT_ID=your_firebase_project_id
-     FIREBASE_CLIENT_EMAIL=your_firebase_client_email
-     FIREBASE_PRIVATE_KEY=your_firebase_private_key
-     ```
-   - Start the backend server:
-     ```bash
-     npm run dev
-     ```
-
-3. **Frontend Setup:**
-   - Navigate to the frontend directory:
-     ```bash
-     cd frontend
-     ```
-   - Install dependencies:
-     ```bash
-     npm install
-     ```
-   - Create a `.env` file in the `frontend` directory and add:
-     ```env
-     VITE_API_URL=http://localhost:5000/api
-     ```
-   - Start the Vite development server:
-     ```bash
-     npm run dev
-     ```
+cd SkillSync_Ai
+```
 
 ---
 
-## 🌍 Deployment
+## Backend
 
-For detailed deployment instructions for Vercel (Frontend) and Render (Backend), please refer to our [Deployment Guide](DEPLOYMENT_GUIDE.md).
+```bash
+npm install
+
+npm run dev
+```
+
+---
+
+## Frontend
+
+```bash
+cd frontend
+
+npm install
+
+npm run dev
+```
+
+---
+
+# 📂 Project Structure
+
+```
+SkillSync_AI
+
+├── frontend
+│   ├── src
+│   ├── components
+│   ├── pages
+│   └── assets
+│
+├── routes
+├── controllers
+├── middleware
+├── models
+├── utils
+├── uploads
+├── config
+└── server.js
+```
+
+---
+
+# 🔮 Future Improvements
+
+- 🤖 LLM-based Resume Feedback
+- 🎤 AI Mock Interviews
+- 📈 Resume ATS Score
+- 📄 Cover Letter Generator
+- 🌍 LinkedIn Integration
+- 🔍 Live Job API Integration
+- 🧠 Personalized Career Suggestions
+- 📊 Recruiter Analytics Dashboard
+
+---
+
+# 🤝 Contributors
+
+Made with ❤️ by
+
+- **Sagar Chhikara**
+- **Anirudh Sharma**
+- **Bhuvnesh**
+- **Chirag**
 
 ---
 
 <div align="center">
-  <p>Built with ❤️ for better job matching.</p>
+
+## ⭐ If you like this project, give it a Star!
+
+**SkillSync AI — Making hiring smarter with AI. 🚀**
+
 </div>

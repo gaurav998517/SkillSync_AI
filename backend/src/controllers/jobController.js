@@ -1,4 +1,5 @@
 const jobRepository = require('../repositories/jobRepository');
+const joobleService = require('../services/joobleService');
 
 /**
  * @desc    Create a new job
@@ -104,4 +105,43 @@ const seedDummyJobs = async (req, res) => {
     }
 };
 
-module.exports = { createJob, getAllJobs, seedDummyJobs };
+/**
+ * @desc    Fetch and import jobs from Jooble API
+ * @route   POST /api/jobs/import-jooble
+ * @access  Private (recruiter, admin)
+ */
+const importJoobleJobs = async (req, res) => {
+    try {
+        const { keywords, location } = req.body;
+
+        if (!keywords) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide search keywords for Jooble API',
+            });
+        }
+
+        const joobleJobs = await joobleService.fetchJobsFromJooble(keywords, location);
+        
+        if (joobleJobs.length === 0) {
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                message: 'No jobs found on Jooble matching the criteria',
+            });
+        }
+
+        const result = await jobRepository.createMany(joobleJobs);
+
+        return res.status(201).json({
+            success: true,
+            count: result.count,
+            message: `Successfully imported ${result.count} jobs from Jooble`,
+        });
+    } catch (error) {
+        console.error('Error importing jobs from Jooble:', error);
+        res.status(500).json({ success: false, message: error.message || 'Server error importing jobs from Jooble' });
+    }
+};
+
+module.exports = { createJob, getAllJobs, seedDummyJobs, importJoobleJobs };

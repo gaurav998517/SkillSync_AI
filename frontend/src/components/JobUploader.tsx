@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Briefcase, Upload, Server, CheckCircle2 } from "lucide-react";
+import { Briefcase, Upload, Server, CheckCircle2, Globe, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +22,11 @@ const JobUploader = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+
+  const [joobleQuery, setJoobleQuery] = useState({
+    keywords: "",
+    location: "",
+  });
 
   const [formData, setFormData] = useState({
     title: "",
@@ -85,6 +90,28 @@ const JobUploader = () => {
       fetchJobs();
     } catch (err) {
       toast.error("Failed to seed dummy jobs");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImportJooble = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joobleQuery.keywords) {
+      toast.error("Please enter keywords to search");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api.post("/jobs/import-jooble", {
+        keywords: joobleQuery.keywords,
+        location: joobleQuery.location,
+      });
+      toast.success(res.data.message || "Jobs imported successfully!");
+      setJoobleQuery({ keywords: "", location: "" });
+      fetchJobs();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to import jobs from Jooble");
     } finally {
       setLoading(false);
     }
@@ -179,6 +206,44 @@ const JobUploader = () => {
         </div>
       )}
 
+      {isRecruiter && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="mb-4 text-lg font-semibold text-foreground flex items-center gap-2">
+            <Globe className="h-5 w-5 text-primary" />
+            Import Jobs from Jooble API
+          </h3>
+          <form onSubmit={handleImportJooble} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Keywords *</label>
+                <Input
+                  name="joobleKeywords"
+                  placeholder="e.g. React Developer"
+                  value={joobleQuery.keywords}
+                  onChange={(e) => setJoobleQuery({ ...joobleQuery, keywords: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Location</label>
+                <Input
+                  name="joobleLocation"
+                  placeholder="e.g. Chicago, IL"
+                  value={joobleQuery.location}
+                  onChange={(e) => setJoobleQuery({ ...joobleQuery, location: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="submit" variant="gradient" disabled={loading} className="gap-2">
+                <Search className="h-4 w-4" />
+                {loading ? "Importing..." : "Search & Import"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Available Jobs List */}
       <div>
         <h3 className="mb-4 text-lg font-semibold text-foreground flex items-center gap-2">
@@ -217,14 +282,14 @@ const JobUploader = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">{job.company}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {job.requiredSkills.slice(0, 5).map((skill) => (
+                  {(job.requiredSkills || []).slice(0, 5).map((skill) => (
                     <span key={skill} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                       {skill}
                     </span>
                   ))}
-                  {job.requiredSkills.length > 5 && (
+                  {(job.requiredSkills || []).length > 5 && (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      +{job.requiredSkills.length - 5} more
+                      +{(job.requiredSkills || []).length - 5} more
                     </span>
                   )}
                 </div>

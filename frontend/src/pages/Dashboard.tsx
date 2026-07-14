@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import api from "@/services/api";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import ResumeUploader from "@/components/ResumeUploader";
 import MatchResults from "@/components/MatchResults";
@@ -11,6 +13,24 @@ import { useAuth } from "@/context/AuthContext";
 const DashboardHome = () => {
   const { user } = useAuth();
   const isRecruiter = user?.role === "recruiter";
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isRecruiter) return;
+    const fetchJobs = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("/jobs");
+        setJobs(res.data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch jobs for overview:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobs();
+  }, [isRecruiter]);
   
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -24,14 +44,14 @@ const DashboardHome = () => {
       <div className="grid gap-4 md:grid-cols-3">
         {(isRecruiter
           ? [
-              { icon: Briefcase, label: "Active Jobs", value: "5", color: "text-primary" },
+              { icon: Briefcase, label: "Active Jobs", value: loading ? "..." : String(jobs.length), color: "text-primary" },
               { icon: Target, label: "Candidates Matched", value: "24", color: "text-accent" },
               { icon: TrendingUp, label: "Avg Match Score", value: "88%", color: "text-success" },
             ]
           : [
-              { icon: FileText, label: "Resumes Uploaded", value: "3", color: "text-primary" },
-              { icon: Target, label: "Jobs Matched", value: "12", color: "text-accent" },
-              { icon: TrendingUp, label: "Avg Match Score", value: "85%", color: "text-success" },
+              { icon: FileText, label: "Resumes Uploaded", value: user?.resumesCount !== undefined ? String(user.resumesCount) : "0", color: "text-primary" },
+              { icon: Target, label: "Jobs Matched", value: user?.jobsMatchedCount !== undefined ? String(user.jobsMatchedCount) : "0", color: "text-accent" },
+              { icon: TrendingUp, label: "Avg Match Score", value: user?.avgMatchScore ? `${user.avgMatchScore}%` : "0%", color: "text-success" },
             ]
         ).map((stat) => (
           <div key={stat.label} className="glass rounded-2xl p-6">
@@ -53,7 +73,25 @@ const DashboardHome = () => {
           <div className="lg:col-span-3 space-y-6">
             <div className="glass rounded-2xl p-6">
               <h3 className="mb-4 text-lg font-semibold text-foreground">Active Job Postings Overview</h3>
-              <p className="text-sm text-muted-foreground">You currently have no active job postings. Go to Jobs to create one.</p>
+              {loading ? (
+                <p className="text-sm text-muted-foreground">Loading active jobs...</p>
+              ) : jobs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">You currently have no active job postings. Go to Jobs to create one.</p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {jobs.map((job) => (
+                    <div key={job._id} className="p-4 rounded-xl border border-border bg-card/50 flex justify-between items-center">
+                      <div>
+                        <h4 className="font-semibold text-foreground">{job.title}</h4>
+                        <p className="text-xs text-muted-foreground">{job.company}</p>
+                      </div>
+                      <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                        {job.minExperience}y+ exp
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ) : (

@@ -89,11 +89,12 @@ describe('Signup Page', () => {
     fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith('/auth/signup', {
-        name: 'Jane Doe',
-        email: 'jane@example.com',
-        password: 'securepass123',
-      });
+       expect(api.post).toHaveBeenCalledWith('/auth/signup', {
+         name: 'Jane Doe',
+         email: 'jane@example.com',
+         password: 'securepass123',
+         role: 'applicant',
+       });
       expect(mockLogin).toHaveBeenCalledWith('fake-jwt-token', { id: '2', name: 'Jane Doe' });
       expect(toast.success).toHaveBeenCalledWith('Account created successfully!');
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard');

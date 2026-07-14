@@ -6,7 +6,7 @@ const { db } = require('./firebase');
  * If tests are run on a shared project, ensure test data is segmented (e.g., using a 'test_' prefix).
  */
 async function clearFirestoreDb() {
-    const collectionsToClear = ['users', 'resumes', 'jobs']; // Add test collection prefixes if needed later
+    const collectionsToClear = ['users', 'resumes', 'jobs', 'aiSuggestions']; // Add test collection prefixes if needed later
 
     for (const collectionName of collectionsToClear) {
         let batch = db.batch();

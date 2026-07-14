@@ -1,10 +1,13 @@
-const Resume = require('../models/Resume');
-const User = require('../models/User');
+const resumeRepository = require('../repositories/resumeRepository');
+const userRepository = require('../repositories/userRepository');
 const { parseResumeFile } = require('../services/fileParserService');
 const { extractSkills } = require('../services/skillExtractionService');
+const { withTransaction } = require('../utils/transaction');
 
 /**
- * Handles uploading a resume, parsing it, extracting skills, and saving to database.
+ * @desc    Upload resume, parse it, extract skills, persist to DB
+ * @route   POST /api/resume/upload
+ * @access  Private
  */
 const uploadResume = async (req, res) => {
     try {
@@ -13,60 +16,68 @@ const uploadResume = async (req, res) => {
         }
 
         const filePath = req.file.path;
-        const originalName = req.file.originalname;
+        const originalName = req.file.sanitizedName || req.file.originalname;
 
-        // 1. Extract raw text
+        // 1. Extract raw text from PDF/DOCX
         let rawText;
         try {
             rawText = await parseResumeFile(filePath);
         } catch (error) {
             console.error('File parsing error:', error);
-            return res.status(400).json({
-                success: false,
-                message: error.message || 'Failed to parse file'
-            });
+            return res.status(400).json({ success: false, message: error.message || 'Failed to parse file' });
         }
 
         if (!rawText || rawText.trim() === '') {
             return res.status(400).json({ success: false, message: 'No readable text found in resume' });
         }
 
-        // 2. Extract skills
+        // 2. Extract skills via dictionary NLP
         const skills = extractSkills(rawText);
-
         if (!skills || skills.length === 0) {
             return res.status(400).json({ success: false, message: 'No skills extracted from resume' });
         }
 
-        const { userId } = req.body; // Expect frontend to send userId in form data
-        
-        // 3. Save resume data
-        const resumeData = {
-            filename: originalName,
-            filepath: filePath,
-            rawText: rawText,
-            skills: skills
-        };
-        
+        const userId = req.body.userId || null;
+
+        // 3. Persist resume + update user's latest resume ID atomically
+        let resume;
         if (userId) {
-            resumeData.userId = userId;
-        }
-        
-        const resume = await Resume.create(resumeData);
-        
-        // Update user's recentResume id and persisted skills if user exists
-        if (userId) {
-            await User.findByIdAndUpdate(userId, { 
-                recentResumeId: resume._id,
-                skills: resume.skills,
-                education: resume.education || []
+            resume = await withTransaction(async (tx) => {
+                const created = await tx.resume.create({
+                    data: {
+                        userId,
+                        filename: originalName,
+                        filepath: filePath,
+                        rawText,
+                        skills: skills.map((s) => s.toLowerCase().trim()),
+                        education: [],
+                    },
+                });
+
+                // Update user's skills snapshot and latest resume pointer
+                await tx.user.update({
+                    where: { id: userId },
+                    data: { updatedAt: new Date() },
+                });
+
+                return created;
+            });
+        } else {
+            // Anonymous upload (no userId)
+            resume = await resumeRepository.create({
+                filename: originalName,
+                filepath: filePath,
+                rawText,
+                skills,
+                education: [],
             });
         }
 
-        // 4. Return response to frontend
+        // Normalize id → _id for frontend compatibility
+        const { id, ...rest } = resume;
         return res.status(200).json({
             success: true,
-            data: resume
+            data: { _id: id, ...rest },
         });
     } catch (error) {
         console.error('Resume upload/process error:', error);
@@ -74,6 +85,4 @@ const uploadResume = async (req, res) => {
     }
 };
 
-module.exports = {
-    uploadResume
-};
+module.exports = { uploadResume };

@@ -934,6 +934,25 @@ button,input,select,textarea{font-family:var(--ff-body)}
   </div>
 </div>
 
+<!-- ══ AI RESUME SUGGESTIONS MODAL ══ -->
+<div class="modal-overlay hidden" id="ai-suggestions-modal" onclick="Matches.closeSuggestionsModal(event)">
+  <div class="modal" id="ai-suggestions-modal-inner" style="max-width: 780px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:24px">✨</span> AI Resume Tailoring Suggestions
+        </div>
+        <div style="font-size:14px;color:var(--text2);margin-top:4px" id="ai-suggestions-job-info">—</div>
+      </div>
+      <button class="modal-close" onclick="Matches.closeSuggestionsModal()">✕</button>
+    </div>
+    
+    <div id="ai-suggestions-modal-body">
+      <!-- Suggestions content will be dynamically loaded here -->
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════
      JAVASCRIPT
 ══════════════════════════════════════ -->
@@ -968,6 +987,37 @@ const API = {
     return r.json();
   }
 };
+
+/* ─────────────────────────────────────
+   GLOBAL HELPERS
+───────────────────────────────────── */
+function getResumeId() {
+  const r = Store.get('resume');
+  if (r && r._id) return r._id;
+  const id = Store.get('resumeUsedId');
+  if (id) return id;
+  return null;
+}
+
+function copyText(text, btnId) {
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '✓ Copied';
+      btn.style.background = 'var(--success)';
+      btn.style.color = 'var(--dark)';
+      setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.style.background = '';
+        btn.style.color = '';
+      }, 2000);
+    }
+    Toast.show('Copied to clipboard!', 'success');
+  }).catch(() => {
+    Toast.show('Failed to copy text', 'error');
+  });
+}
 
 /* ─────────────────────────────────────
    STORE (in-memory, no localStorage)
@@ -1459,6 +1509,7 @@ const Jobs = {
 ───────────────────────────────────── */
 const Matches = {
   _all: [],
+  _currentSuggestions: null,
   async load(){
     const cached = Store.get('matches');
     if(cached?.length){ this._all=cached; this.render(this._all); return; }
@@ -1474,11 +1525,21 @@ const Matches = {
       if(res.success){
         this._all = res.data||[];
         Store.set('matches', this._all);
+        Store.set('resumeUsedId', res.resumeUsed); // Save resume ID
         if(toast) Toast.show(`Found ${this._all.length} matches!`,'success');
         this.render(this._all);
       } else {
         Toast.show(res.message||'Match failed — upload a resume first','error');
-        document.getElementById('matches-list').innerHTML=`<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">No resume found</div><div class="empty-sub">Upload your resume first to get AI-powered matches.</div><button class="btn btn-primary" onclick="AppNav.go('resume')">Upload Resume</button></div>`;
+        document.getElementById('matches-list').innerHTML=`<div class="empty-state">
+          <div class="empty-icon">📄</div>
+          <div class="empty-title">No resume found</div>
+          <div class="empty-sub">Upload your resume first to get AI-powered matches.</div>
+          <button class="btn btn-primary" onclick="AppNav.go('resume')">Upload Resume</button>
+        </div>
+        <div style="margin-top:24px;">
+          <div style="font-size:14px; font-weight:600; color:var(--text2); margin-bottom:12px; font-family:var(--ff-display)">Interactive Preview:</div>
+          ${this.renderDemoCard()}
+        </div>`;
       }
     } catch {
       Toast.show('Match engine error','error');
@@ -1493,11 +1554,22 @@ const Matches = {
   render(matches){
     const el = document.getElementById('matches-list');
     if(!matches.length){
-      el.innerHTML=`<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No matches</div><div class="empty-sub">Try lowering the match threshold or run auto-match again.</div></div>`;
+      el.innerHTML=`<div class="empty-state">
+        <div class="empty-icon">🎯</div>
+        <div class="empty-title">No matches found</div>
+        <div class="empty-sub">Upload your resume and click "Run Auto-Match" to see AI-ranked job matches.</div>
+      </div>
+      <div style="margin-top:24px;">
+        <div style="font-size:14px; font-weight:600; color:var(--text2); margin-bottom:12px; font-family:var(--ff-display)">Interactive Preview:</div>
+        ${this.renderDemoCard()}
+      </div>`;
       return;
     }
     const sorted = [...matches].sort((a,b)=>(b.matchDetails?.matchPercentage||0)-(a.matchDetails?.matchPercentage||0));
-    el.innerHTML = sorted.map(m=>this.renderCard(m)).join('');
+    el.innerHTML = sorted.map(m=>this.renderCard(m)).join('') + `<div style="margin-top:24px; border-top:1px solid var(--border); padding-top:24px;">
+      <div style="font-size:14px; font-weight:600; color:var(--text2); margin-bottom:12px; font-family:var(--ff-display)">Interactive Preview:</div>
+      ${this.renderDemoCard()}
+    </div>`;
   },
   renderCard(m){
     const pct = m.matchDetails?.matchPercentage||0;
@@ -1529,8 +1601,232 @@ const Matches = {
           </span>
         </div>
       </div>
-      <button class="btn ${saved?'btn-primary':'btn-secondary'} btn-sm" style="flex-shrink:0;align-self:flex-start" onclick="Jobs.toggleSave('${m.job?._id}',this)">${saved?'🔖 Saved':'+ Save'}</button>
+      <div style="display:flex; flex-direction:column; gap:8px; align-self:flex-start; align-items:flex-end; flex-shrink:0;">
+        <button class="btn ${saved?'btn-primary':'btn-secondary'} btn-sm" style="width:90px; text-align:center;" onclick="Jobs.toggleSave('${m.job?._id}',this)">${saved?'🔖 Saved':'+ Save'}</button>
+        <button class="btn btn-primary btn-sm" style="display:flex; align-items:center; gap:6px; background:linear-gradient(135deg, var(--lime), var(--cyan)); color:var(--dark); font-weight:700; border:none;" onclick="Matches.improveResume('${m.job?._id}', '${(m.job?.title||'').replace(/'/g, "\\'")}', '${(m.job?.company||'').replace(/'/g, "\\'")}')">
+          ✨ Improve
+        </button>
+      </div>
     </div>`;
+  },
+  renderDemoCard(){
+    const pct = 72;
+    const color = 'var(--warn)';
+    const r=22,circ=2*Math.PI*r,offset=circ-((pct/100)*circ);
+    return `<div class="match-card" style="border: 1px dashed rgba(200,255,0,0.4); background: rgba(200,255,0,0.02); position: relative;">
+      <div style="position: absolute; top: -10px; left: 20px; background: var(--lime); color: var(--dark); font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.05em;">Demo Match Preview</div>
+      <svg width="66" height="66" style="flex-shrink:0;transform:rotate(-90deg)">
+        <circle cx="33" cy="33" r="${r}" stroke="var(--dark4)" stroke-width="4" fill="none"/>
+        <circle cx="33" cy="33" r="${r}" stroke="${color}" stroke-width="4" fill="none"
+          stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="round"/>
+        <text x="33" y="33" text-anchor="middle" dominant-baseline="middle"
+          style="fill:${color};font-family:Syne,sans-serif;font-size:10px;font-weight:800;transform:rotate(90deg) translate(0,-66px)">${pct}%</text>
+      </svg>
+      <div class="match-info">
+        <div class="match-job-title">Full Stack Engineer (Demo)</div>
+        <div class="match-company" style="margin-bottom:10px">StartupX · Min 2 yrs</div>
+        <div style="margin-bottom:6px">
+          <span style="font-size:11px;font-weight:600;color:var(--success);text-transform:uppercase;letter-spacing:0.08em;margin-right:8px">✓ Matched</span>
+          <span style="display:inline-flex;flex-wrap:wrap;gap:4px">
+            <span class="skill-chip matched">react</span>
+            <span class="skill-chip matched">javascript</span>
+          </span>
+        </div>
+        <div>
+          <span style="font-size:11px;font-weight:600;color:var(--error);text-transform:uppercase;letter-spacing:0.08em;margin-right:8px">✗ Missing</span>
+          <span style="display:inline-flex;flex-wrap:wrap;gap:4px">
+            <span class="skill-chip missing">aws</span>
+            <span class="skill-chip missing">docker</span>
+          </span>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; align-self:flex-start; align-items:flex-end; flex-shrink:0;">
+        <button class="btn btn-secondary btn-sm" style="width:90px; text-align:center;" disabled>+ Save</button>
+        <button class="btn btn-primary btn-sm" style="display:flex; align-items:center; gap:6px; background:linear-gradient(135deg, var(--lime), var(--cyan)); color:var(--dark); font-weight:700; border:none;" onclick="Matches.improveResume('demo_job_id', 'Full Stack Engineer (Demo)', 'StartupX')">
+          ✨ Improve
+        </button>
+      </div>
+    </div>`;
+  },
+  async improveResume(jobId, jobTitle, companyName){
+    const resumeId = getResumeId() || 'demo_resume_id';
+    const modal = document.getElementById('ai-suggestions-modal');
+    modal.classList.remove('hidden');
+    
+    document.getElementById('ai-suggestions-job-info').textContent = `${jobTitle} at ${companyName}`;
+    const body = document.getElementById('ai-suggestions-modal-body');
+    
+    body.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; gap:16px;">
+        <span class="spinner" style="width:40px; height:40px; border-width:4px;"></span>
+        <div style="font-weight:600; font-size:16px; color:var(--text)">Analyzing Job & Resume with Groq AI...</div>
+        <div style="font-size:13px; color:var(--text2)">Generating tailored improvements. This may take a moment.</div>
+      </div>
+    `;
+    
+    try {
+      const res = await API.post('/api/ai/resume-suggestions', { resumeId, jobId });
+      if(res.success){
+        Matches._currentSuggestions = res.data;
+        Matches.renderSuggestions(res.data, resumeId === 'demo_resume_id', jobId, jobTitle, companyName);
+      } else {
+        body.innerHTML = `
+          <div style="text-align:center; padding:40px; border:1px dashed var(--error); border-radius:16px;">
+            <div style="font-size:24px; margin-bottom:12px;">✕</div>
+            <div style="font-weight:600; font-size:16px; color:var(--error); margin-bottom:8px;">Suggestions Failed</div>
+            <div style="font-size:14px; color:var(--text2); margin-bottom:20px;">${res.message || 'Could not fetch suggestions.'}</div>
+            <button class="btn btn-primary btn-sm" onclick="Matches.improveResume('${jobId}', '${jobTitle.replace(/'/g, "\\'")}', '${companyName.replace(/'/g, "\\'")}')">Retry</button>
+          </div>
+        `;
+      }
+    } catch (err) {
+      body.innerHTML = `
+        <div style="text-align:center; padding:40px; border:1px dashed var(--error); border-radius:16px;">
+          <div style="font-size:24px; margin-bottom:12px;">✕</div>
+          <div style="font-weight:600; font-size:16px; color:var(--error); margin-bottom:8px;">Connection Error</div>
+          <div style="font-size:14px; color:var(--text2); margin-bottom:20px;">Failed to connect to the backend server.</div>
+          <button class="btn btn-primary btn-sm" onclick="Matches.improveResume('${jobId}', '${jobTitle.replace(/'/g, "\\'")}', '${companyName.replace(/'/g, "\\'")}')">Retry</button>
+        </div>
+      `;
+    }
+  },
+  closeSuggestionsModal(e){
+    if(!e || e.target === document.getElementById('ai-suggestions-modal') || e.target.classList.contains('modal-close')){
+      document.getElementById('ai-suggestions-modal').classList.add('hidden');
+    }
+  },
+  renderSuggestions(data, isDemo, jobId, jobTitle, companyName){
+    const body = document.getElementById('ai-suggestions-modal-body');
+    let html = '';
+    
+    if (isDemo) {
+      html += `
+        <div style="background:rgba(255,92,26,0.1); border:1px solid rgba(255,92,26,0.2); border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:13px; color:var(--orange); display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">⚠️</span>
+          <span><strong>Demo Mode:</strong> Displaying interactive preview recommendations. Upload your own resume in the "Upload Resume" tab to see personalized matches.</span>
+        </div>
+      `;
+    }
+    
+    html += `
+      <div style="background:rgba(255,255,255,0.02); border-left:4px solid var(--cyan); padding:16px; border-radius:8px; margin-bottom:20px; line-height:1.6; font-size:14.5px;">
+        <strong style="color:var(--cyan); display:block; margin-bottom:4px; font-family:var(--ff-display); font-size:12px; text-transform:uppercase; letter-spacing:0.05em;">Overall Assessment</strong>
+        ${data.overallAssessment || 'No overall assessment provided.'}
+      </div>
+    `;
+    
+    html += `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+        <div style="background:rgba(40,200,64,0.05); border:1px solid rgba(40,200,64,0.1); border-radius:12px; padding:16px;">
+          <h4 style="font-family:var(--ff-display); font-size:14px; font-weight:700; color:var(--success); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+            ✓ Key Strengths
+          </h4>
+          <ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:8px;">
+            ${(data.strengths || []).map(s => `
+              <li style="font-size:13px; color:var(--text2); display:flex; gap:6px; align-items:flex-start;">
+                <span style="color:var(--success)">•</span><span>${s}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+        
+        <div style="background:rgba(255,92,26,0.05); border:1px solid rgba(255,92,26,0.1); border-radius:12px; padding:16px;">
+          <h4 style="font-family:var(--ff-display); font-size:14px; font-weight:700; color:var(--orange); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+            ✗ Missing Competencies
+          </h4>
+          <ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:8px;">
+            ${(data.weaknesses || []).map(w => `
+              <li style="font-size:13px; color:var(--text2); display:flex; gap:6px; align-items:flex-start;">
+                <span style="color:var(--orange)">•</span><span>${w}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      </div>
+    `;
+    
+    if (data.missingSkillsExplanation && data.missingSkillsExplanation.length) {
+      html += `
+        <div style="margin-bottom:24px;">
+          <h4 style="font-family:var(--ff-display); font-size:15px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+            📖 Why Missing Skills Matter
+          </h4>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            ${data.missingSkillsExplanation.map(exp => `
+              <div style="background:var(--dark3); border:1px solid var(--border); padding:12px 14px; border-radius:8px; font-size:13px; color:var(--text2); line-height:1.5;">
+                ${exp}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (data.suggestedBulletPoints && data.suggestedBulletPoints.length) {
+      html += `
+        <div style="margin-bottom:24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="font-family:var(--ff-display); font-size:15px; font-weight:700; display:flex; align-items:center; gap:6px;">
+              📝 Tailored Performance Bullet Points
+            </h4>
+            <button class="btn btn-secondary btn-sm" id="copy-all-bullets-btn" style="padding:4px 8px; font-size:11px;" onclick="copyText(Matches._currentSuggestions.suggestedBulletPoints.join('\\n'), 'copy-all-bullets-btn')">
+              📋 Copy All
+            </button>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            ${data.suggestedBulletPoints.map((bullet, idx) => `
+              <div style="background:rgba(200,255,0,0.03); border:1px dashed rgba(200,255,0,0.15); padding:14px; border-radius:10px; display:flex; align-items:center; gap:12px; justify-content:space-between;">
+                <div style="font-size:13px; color:var(--text); line-height:1.5; flex:1;">"${bullet}"</div>
+                <button class="btn btn-secondary btn-sm" id="copy-bullet-${idx}" style="padding:4px 8px; font-size:11px; flex-shrink:0;" onclick="copyText(Matches._currentSuggestions.suggestedBulletPoints[${idx}], 'copy-bullet-${idx}')">
+                  Copy
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    html += `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+        <div style="background:var(--dark3); border:1px solid var(--border); border-radius:12px; padding:16px;">
+          <h4 style="font-family:var(--ff-display); font-size:14px; font-weight:700; color:var(--cyan); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+            🛠 Recommended Projects
+          </h4>
+          <ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:8px;">
+            ${(data.projectRecommendations || []).map(p => `
+              <li style="font-size:13px; color:var(--text2); display:flex; gap:6px; align-items:flex-start;">
+                <span style="color:var(--cyan)">•</span><span>${p}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+        
+        <div style="background:var(--dark3); border:1px solid var(--border); border-radius:12px; padding:16px;">
+          <h4 style="font-family:var(--ff-display); font-size:14px; font-weight:700; color:var(--lime); margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+            ⚡ ATS Optimization Tips
+          </h4>
+          <ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:8px;">
+            ${(data.atsOptimizationTips || []).map(t => `
+              <li style="font-size:13px; color:var(--text2); display:flex; gap:6px; align-items:flex-start;">
+                <span style="color:var(--lime)">•</span><span>${t}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      </div>
+    `;
+    
+    html += `
+      <div style="display:flex; justify-content:end; gap:12px; border-top:1px solid var(--border); padding-top:20px;">
+        <button class="btn btn-secondary" onclick="Matches.closeSuggestionsModal()">Close</button>
+        <button class="btn btn-primary" onclick="Matches.improveResume('${jobId}', '${jobTitle.replace(/'/g, "\\'")}', '${companyName.replace(/'/g, "\\'")}')" style="display:flex; align-items:center; gap:6px; background:linear-gradient(135deg, var(--lime), var(--cyan)); color:var(--dark); font-weight:700; border:none;">
+          🔄 Regenerate
+        </button>
+      </div>
+    `;
+    
+    body.innerHTML = html;
   }
 };
 

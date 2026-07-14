@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import api from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 
 interface Job {
   _id: string;
@@ -16,6 +17,8 @@ interface Job {
 }
 
 const JobUploader = () => {
+  const { user } = useAuth();
+  const isRecruiter = user?.role === "recruiter";
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -90,89 +93,91 @@ const JobUploader = () => {
   return (
     <div className="space-y-8">
       {/* Create Job Form */}
-      <div className="glass rounded-2xl p-6">
-        <h3 className="mb-4 text-lg font-semibold text-foreground flex items-center gap-2">
-          <Briefcase className="h-5 w-5 text-primary" />
-          Create New Job
-        </h3>
-        <form onSubmit={handleCreateJob} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {isRecruiter && (
+        <div className="glass rounded-2xl p-6">
+          <h3 className="mb-4 text-lg font-semibold text-foreground flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" />
+            Create New Job
+          </h3>
+          <form onSubmit={handleCreateJob} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Job Title *</label>
+                <Input
+                  name="title"
+                  placeholder="e.g. Senior Frontend Engineer"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Company *</label>
+                <Input
+                  name="company"
+                  placeholder="e.g. TechCorp Inc."
+                  value={formData.company}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">Job Title *</label>
+              <label className="text-sm font-medium">Required Skills (comma-separated) *</label>
               <Input
-                name="title"
-                placeholder="e.g. Senior Frontend Engineer"
-                value={formData.title}
+                name="requiredSkills"
+                placeholder="e.g. React, TypeScript, Node.js"
+                value={formData.requiredSkills}
                 onChange={handleInputChange}
                 required
               />
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Min Experience (Years)</label>
+                <Input
+                  name="minExperience"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 3"
+                  value={formData.minExperience}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">Company *</label>
-              <Input
-                name="company"
-                placeholder="e.g. TechCorp Inc."
-                value={formData.company}
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                name="description"
+                placeholder="Optional brief description of the role..."
+                value={formData.description}
                 onChange={handleInputChange}
-                required
+                rows={3}
               />
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Required Skills (comma-separated) *</label>
-            <Input
-              name="requiredSkills"
-              placeholder="e.g. React, TypeScript, Node.js"
-              value={formData.requiredSkills}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="space-y-2">
-              <label className="text-sm font-medium">Min Experience (Years)</label>
-              <Input
-                name="minExperience"
-                type="number"
-                min="0"
-                placeholder="e.g. 3"
-                value={formData.minExperience}
-                onChange={handleInputChange}
-              />
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSeedDummyJobs}
+                disabled={loading}
+                className="gap-2 text-muted-foreground border-dashed"
+              >
+                <Server className="h-4 w-4" />
+                Generate Dummy Jobs Instead
+              </Button>
+              <Button type="submit" variant="gradient" disabled={loading} className="gap-2">
+                <Upload className="h-4 w-4" />
+                {loading ? "Creating..." : "Create Job"}
+              </Button>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
-            <Textarea
-              name="description"
-              placeholder="Optional brief description of the role..."
-              value={formData.description}
-              onChange={handleInputChange}
-              rows={3}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSeedDummyJobs}
-              disabled={loading}
-              className="gap-2 text-muted-foreground border-dashed"
-            >
-              <Server className="h-4 w-4" />
-              Generate Dummy Jobs Instead
-            </Button>
-            <Button type="submit" variant="gradient" disabled={loading} className="gap-2">
-              <Upload className="h-4 w-4" />
-              {loading ? "Creating..." : "Create Job"}
-            </Button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
 
       {/* Available Jobs List */}
       <div>
@@ -182,14 +187,18 @@ const JobUploader = () => {
             {jobs.length} total
           </span>
         </h3>
-        
+
         {fetching ? (
           <p className="text-sm text-muted-foreground">Loading jobs...</p>
         ) : jobs.length === 0 ? (
           <div className="glass rounded-xl p-8 text-center">
             <Briefcase className="mx-auto h-8 w-8 text-muted-foreground mb-3 opacity-50" />
             <p className="text-muted-foreground">No jobs found in the database.</p>
-            <p className="text-sm text-muted-foreground mt-1">Create one above or click Generate Dummy Jobs.</p>
+            {isRecruiter ? (
+              <p className="text-sm text-muted-foreground mt-1">Create one above or click Generate Dummy Jobs.</p>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">Log in as a recruiter to create new jobs.</p>
+            )}
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">

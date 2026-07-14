@@ -53,8 +53,23 @@ const validateJob = (req, res, next) => {
     return next();
 };
 
+const validateSuggestions = (req, res, next) => {
+    const { resumeId, jobId } = req.body;
+
+    if (!resumeId || typeof resumeId !== 'string' || resumeId.trim() === '') {
+        return res.status(400).json({ success: false, message: 'resumeId is required and must be a non-empty string.' });
+    }
+
+    if (!jobId || typeof jobId !== 'string' || jobId.trim() === '') {
+        return res.status(400).json({ success: false, message: 'jobId is required and must be a non-empty string.' });
+    }
+
+    return next();
+};
+
 module.exports = {
     validateSignup,
     validateLogin,
-    validateJob
+    validateJob,
+    validateSuggestions
 };

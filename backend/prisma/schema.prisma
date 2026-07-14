@@ -1,0 +1,283 @@
+// ============================================================
+// SkillSync AI — Prisma Schema
+// Database: PostgreSQL (NeonDB)
+// ORM: Prisma
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUM TYPES
+// ============================================================
+
+enum Role {
+  applicant
+  recruiter
+  admin
+}
+
+enum ApplicationStatus {
+  applied
+  screening
+  interview
+  offer
+  rejected
+  withdrawn
+}
+
+// ============================================================
+// CORE TABLES
+// ============================================================
+
+/// Registered users — applicants, recruiters, and admins
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(applicant)
+  isActive     Boolean  @default(true) @map("is_active")
+  isDeleted    Boolean  @default(false) @map("is_deleted")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  resumes      Resume[]
+  savedJobs    SavedJob[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+
+  @@index([email])
+  @@index([isDeleted])
+  @@map("users")
+}
+
+/// Uploaded resume documents with extracted text and skills
+model Resume {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  filename    String
+  filepath    String
+  rawText     String   @map("raw_text") @db.Text
+  skills      String[] // Extracted skills array (TEXT[])
+  education   String[] // Education entries
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchResults  MatchResult[]
+  aiSuggestions AiSuggestion[]
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("resumes")
+}
+
+/// Job postings available for matching
+model Job {
+  id             String   @id @default(uuid()) @db.Uuid
+  title          String
+  company        String
+  requiredSkills String[] @map("required_skills") // TEXT[]
+  minExperience  Int      @default(0) @map("min_experience")
+  description    String   @db.Text
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  savedBy       SavedJob[]
+  matchResults  MatchResult[]
+  aiSuggestions AiSuggestion[]
+
+  @@index([isActive])
+  @@index([createdAt(sort: Desc)])
+  @@map("jobs")
+}
+
+/// Join table — user's saved/bookmarked jobs
+model SavedJob {
+  id      String   @id @default(uuid()) @db.Uuid
+  userId  String   @map("user_id") @db.Uuid
+  jobId   String   @map("job_id") @db.Uuid
+  savedAt DateTime @default(now()) @map("saved_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  // Prevent duplicate saves
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([jobId])
+  @@map("saved_jobs")
+}
+
+/// Persisted match results between a resume and a job
+model MatchResult {
+  id            String   @id @default(uuid()) @db.Uuid
+  resumeId      String   @map("resume_id") @db.Uuid
+  jobId         String   @map("job_id") @db.Uuid
+  score         Int      // 0–100 match percentage
+  matchedSkills Json     @map("matched_skills") @db.JsonB // [{job_skill, matched_with, similarity}]
+  missingSkills Json     @map("missing_skills") @db.JsonB // string[]
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, jobId])
+  @@index([resumeId])
+  @@index([jobId])
+  @@index([score(sort: Desc)])
+  @@map("match_results")
+}
+
+/// AI-generated resume suggestions — cached in PostgreSQL with expiry
+model AiSuggestion {
+  id         String   @id @default(uuid()) @db.Uuid
+  resumeId   String   @map("resume_id") @db.Uuid
+  jobId      String   @map("job_id") @db.Uuid
+  suggestions Json    @db.JsonB // Full structured AI response object
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, jobId])
+  @@index([resumeId])
+  @@index([jobId])
+  @@index([expiresAt])
+  @@map("ai_suggestions")
+}
+
+// ============================================================
+// AUTH / SESSION TABLES
+// ============================================================
+
+/// Refresh token sessions (scaffolded — activated when refresh tokens are implemented)
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  refreshToken String   @unique @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ============================================================
+// AUDIT LOGS — security-sensitive events only
+// ============================================================
+
+/// Immutable log of security-sensitive actions
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid // Nullable for failed login attempts (no valid user)
+  action     String   // e.g. "USER_SIGNUP", "USER_LOGIN", "PASSWORD_CHANGE", "LOGIN_FAILED"
+  resource   String   // e.g. "users", "sessions"
+  metadata   Json?    @db.JsonB // e.g. { "ip": "1.2.3.4", "email": "x@y.com" }
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// FUTURE ATS ARCHITECTURE (Tasks 18)
+// Uncomment and run `prisma migrate dev` to activate
+// ============================================================
+
+// model Company {
+//   id          String      @id @default(uuid()) @db.Uuid
+//   name        String
+//   website     String?
+//   logoUrl     String?     @map("logo_url")
+//   createdAt   DateTime    @default(now()) @map("created_at")
+//   updatedAt   DateTime    @updatedAt @map("updated_at")
+//   recruiters  Recruiter[]
+//   @@map("companies")
+// }
+
+// model Recruiter {
+//   id          String    @id @default(uuid()) @db.Uuid
+//   userId      String    @unique @map("user_id") @db.Uuid
+//   companyId   String    @map("company_id") @db.Uuid
+//   title       String?
+//   createdAt   DateTime  @default(now()) @map("created_at")
+//   @@map("recruiters")
+// }
+
+// model Application {
+//   id          String            @id @default(uuid()) @db.Uuid
+//   userId      String            @map("user_id") @db.Uuid
+//   jobId       String            @map("job_id") @db.Uuid
+//   resumeId    String            @map("resume_id") @db.Uuid
+//   status      ApplicationStatus @default(applied)
+//   coverLetter String?           @map("cover_letter") @db.Text
+//   appliedAt   DateTime          @default(now()) @map("applied_at")
+//   updatedAt   DateTime          @updatedAt @map("updated_at")
+//   interviews  Interview[]
+//   @@unique([userId, jobId])
+//   @@index([userId])
+//   @@index([jobId])
+//   @@index([status])
+//   @@map("applications")
+// }
+
+// model Interview {
+//   id            String   @id @default(uuid()) @db.Uuid
+//   applicationId String   @map("application_id") @db.Uuid
+//   scheduledAt   DateTime @map("scheduled_at")
+//   type          String   // "phone", "video", "onsite"
+//   notes         String?  @db.Text
+//   createdAt     DateTime @default(now()) @map("created_at")
+//   @@index([applicationId])
+//   @@index([scheduledAt])
+//   @@map("interviews")
+// }
+
+// model Notification {
+//   id        String   @id @default(uuid()) @db.Uuid
+//   userId    String   @map("user_id") @db.Uuid
+//   title     String
+//   message   String   @db.Text
+//   isRead    Boolean  @default(false) @map("is_read")
+//   createdAt DateTime @default(now()) @map("created_at")
+//   @@index([userId, isRead])
+//   @@map("notifications")
+// }
+
+// model SkillAnalytics {
+//   id          String   @id @default(uuid()) @db.Uuid
+//   skillName   String   @unique @map("skill_name")
+//   demandScore Float    @default(0) @map("demand_score")
+//   jobCount    Int      @default(0) @map("job_count")
+//   resumeCount Int      @default(0) @map("resume_count")
+//   trend       String   @default("stable") // "rising", "falling", "stable"
+//   updatedAt   DateTime @updatedAt @map("updated_at")
+//   @@index([demandScore(sort: Desc)])
+//   @@map("skill_analytics")
+// }

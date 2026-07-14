@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileText, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ const ResumeUploader = ({ onUploadSuccess }: ResumeUploaderProps) => {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
+  const [hasClearedLatest, setHasClearedLatest] = useState(false);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -33,6 +34,18 @@ const ResumeUploader = ({ onUploadSuccess }: ResumeUploaderProps) => {
   }, []);
 
   const { user, refreshUser } = useAuth();
+
+  useEffect(() => {
+    if (user?.latestResume && !result && !hasClearedLatest) {
+      setResult({
+        _id: user.latestResume.id,
+        userId: user._id,
+        skills: user.latestResume.skills,
+        education: user.latestResume.education || [],
+        createdAt: user.latestResume.createdAt,
+      });
+    }
+  }, [user, hasClearedLatest, result]);
 
   const handleUpload = async () => {
     if (!file) return;
@@ -50,6 +63,7 @@ const ResumeUploader = ({ onUploadSuccess }: ResumeUploaderProps) => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setResult(res.data.data);
+      setHasClearedLatest(false);
       onUploadSuccess?.(res.data.data);
       
       // Refresh user data to get persisted skills
@@ -142,7 +156,7 @@ const ResumeUploader = ({ onUploadSuccess }: ResumeUploaderProps) => {
               Uploaded {new Date(result.createdAt).toLocaleString()}
             </div>
           </div>
-          <Button variant="glass" onClick={() => { setResult(null); setFile(null); }}>Upload Another</Button>
+          <Button variant="glass" onClick={() => { setResult(null); setFile(null); setHasClearedLatest(true); }}>Upload Another</Button>
         </motion.div>
       )}
     </div>

@@ -8,6 +8,16 @@ interface User {
   role?: 'applicant' | 'recruiter';
   skills?: string[];
   education?: string[];
+  resumesCount?: number;
+  jobsMatchedCount?: number;
+  avgMatchScore?: number;
+  latestResume?: {
+    id: string;
+    filename: string;
+    createdAt: string;
+    skills: string[];
+    education: string[];
+  } | null;
 }
 
 interface AuthContextType {
@@ -22,17 +32,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem("token");
+  const [user, setUser] = useState<User | null>(() => {
     const storedUser = localStorage.getItem("user");
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+    try {
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (e) {
+      console.error("Failed to parse stored user", e);
+      return null;
     }
-  }, []);
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem("token");
+  });
 
   const login = (newToken: string, newUser: User) => {
     setToken(newToken);
@@ -60,6 +71,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Failed to refresh user:", err);
     }
   };
+
+  useEffect(() => {
+    if (token && user?._id) {
+      refreshUser();
+    }
+  }, [token]);
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, refreshUser, isAuthenticated: !!token }}>

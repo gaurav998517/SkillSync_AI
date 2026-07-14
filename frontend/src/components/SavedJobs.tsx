@@ -35,7 +35,7 @@ const SavedJobs = () => {
 
   useEffect(() => {
     fetchSavedJobs();
-  }, []);
+  }, [user]);
 
   const handleRemove = async (jobId: string) => {
     if (!user) return;

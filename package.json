@@ -4,9 +4,16 @@
   "description": "SkillSync uses NLP-based skill extraction and cosine similarity matching to evaluate resume-job compatibility.",
   "main": "index.js",
   "scripts": {
-    "test": "jest --runInBand",
+    "test": "jest --config backend/jest.config.js --runInBand",
     "dev": "nodemon backend/server.js",
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "prisma:generate": "cd backend && prisma generate --schema=prisma/schema.prisma",
+    "prisma:migrate": "cd backend && prisma migrate dev --schema=prisma/schema.prisma",
+    "prisma:deploy": "cd backend && prisma migrate deploy --schema=prisma/schema.prisma",
+    "prisma:studio": "cd backend && prisma studio --schema=prisma/schema.prisma",
+    "prisma:reset": "cd backend && prisma migrate reset --schema=prisma/schema.prisma",
+    "db:migrate": "node backend/scripts/migrateFirestoreToPostgres.js",
+    "db:migrate:dry": "node backend/scripts/migrateFirestoreToPostgres.js --dry-run"
   },
   "repository": {
     "type": "git",
@@ -20,21 +27,28 @@
   },
   "homepage": "https://github.com/Sagarchhikara/SkillSync_Ai#readme",
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "@xenova/transformers": "^2.17.2",
     "axios": "^1.13.6",
+    "bcryptjs": "^3.0.3",
     "canvas": "^3.2.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "firebase-admin": "^13.7.0",
+    "express-rate-limit": "^8.5.2",
+    "groq-sdk": "^1.2.1",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
     "mammoth": "^1.11.0",
     "multer": "^2.1.0",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "jest": "^30.2.0",
     "nodemon": "^3.1.14",
     "pdfkit": "^0.17.2",
+    "prisma": "^5.22.0",
     "supertest": "^7.2.2"
   }
 }

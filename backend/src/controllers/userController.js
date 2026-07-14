@@ -1,59 +1,56 @@
-const User = require('../models/User');
-const Job = require('../models/Job');
+const userRepository = require('../repositories/userRepository');
+const savedJobRepository = require('../repositories/savedJobRepository');
+const resumeRepository = require('../repositories/resumeRepository');
+const matchRepository = require('../repositories/matchRepository');
 
 /**
  * @desc    Save a job for a user
  * @route   POST /api/users/:userId/jobs/:jobId
+ * @access  Private (owner)
  */
 const saveJob = async (req, res) => {
     try {
         const { userId, jobId } = req.params;
 
-        const user = await User.findById(userId);
+        // Verify user exists
+        const user = await userRepository.findById(userId);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        const job = await Job.findById(jobId);
-        if (!job) {
-            return res.status(404).json({ success: false, message: 'Job not found' });
-        }
-
-        // Update user
-        const updatedSavedJobs = [...user.savedJobs];
-        if (!updatedSavedJobs.includes(jobId)) {
-            updatedSavedJobs.push(jobId);
-            await User.findByIdAndUpdate(userId, { savedJobs: updatedSavedJobs });
-        } else {
+        // Check for duplicate
+        const alreadySaved = await savedJobRepository.existsByUserAndJob(userId, jobId);
+        if (alreadySaved) {
             return res.status(400).json({ success: false, message: 'Job already saved' });
         }
 
-        return res.status(200).json({ success: true, message: 'Job saved successfully', savedJobs: updatedSavedJobs });
+        await savedJobRepository.save(userId, jobId);
+        return res.status(200).json({ success: true, message: 'Job saved successfully' });
     } catch (error) {
+        // Handle FK violation (job not found)
+        if (error.code === 'P2003') {
+            return res.status(404).json({ success: false, message: 'Job not found' });
+        }
         console.error('Save job error:', error);
         res.status(500).json({ success: false, message: 'Server error saving job', error: error.message });
     }
 };
 
 /**
- * @desc    Get user's saved jobs
+ * @desc    Get user's saved jobs (full job objects)
  * @route   GET /api/users/:userId/jobs
+ * @access  Private (owner)
  */
 const getSavedJobs = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const user = await User.findById(userId);
+        const user = await userRepository.findById(userId);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Fetch jobs individually since Firestore doesn't provide easy populate
-        const savedJobs = [];
-        for (const jobId of (user.savedJobs || [])) {
-            const job = await Job.findById(jobId);
-            if (job) savedJobs.push(job);
-        }
+        const savedJobs = await savedJobRepository.findAllByUserId(userId);
 
         return res.status(200).json({ success: true, data: savedJobs });
     } catch (error) {
@@ -65,43 +62,84 @@ const getSavedJobs = async (req, res) => {
 /**
  * @desc    Remove a saved job for a user
  * @route   DELETE /api/users/:userId/jobs/:jobId
+ * @access  Private (owner)
  */
 const removeSavedJob = async (req, res) => {
     try {
         const { userId, jobId } = req.params;
 
-        const user = await User.findById(userId);
+        const user = await userRepository.findById(userId);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        const updatedSavedJobs = (user.savedJobs || []).filter(id => id.toString() !== jobId);
-        await User.findByIdAndUpdate(userId, { savedJobs: updatedSavedJobs });
+        await savedJobRepository.remove(userId, jobId);
 
-        return res.status(200).json({ success: true, message: 'Job removed successfully', savedJobs: updatedSavedJobs });
+        return res.status(200).json({ success: true, message: 'Job removed from saved list' });
     } catch (error) {
+        // Prisma P2025 — record to delete not found
+        if (error.code === 'P2025') {
+            return res.status(404).json({ success: false, message: 'Saved job not found' });
+        }
         console.error('Remove saved job error:', error);
         res.status(500).json({ success: false, message: 'Server error removing job', error: error.message });
     }
 };
 
 /**
- * @desc    Get user profile data
+ * @desc    Get user profile (no password)
  * @route   GET /api/users/:userId/profile
+ * @access  Private (owner)
  */
 const getUserProfile = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const user = await User.findById(userId);
-        if (user && user.password) {
-            delete user.password;
-        }
+        const user = await userRepository.findById(userId);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        return res.status(200).json({ success: true, data: user });
+        // Fetch user's resumes
+        const resumes = await resumeRepository.findAllByUserId(userId);
+        const latestResume = resumes[0] || null;
+
+        // Fetch user's match results if latest resume exists
+        let matchResults = [];
+        if (latestResume) {
+            matchResults = await matchRepository.findByResume(latestResume.id);
+        }
+
+        const resumesCount = resumes.length;
+        const jobsMatchedCount = matchResults.length;
+        
+        let avgMatchScore = 0;
+        if (jobsMatchedCount > 0) {
+            const totalScore = matchResults.reduce((acc, curr) => acc + curr.score, 0);
+            avgMatchScore = Math.round(totalScore / jobsMatchedCount);
+        }
+
+        // Normalize id field to _id for frontend compatibility
+        const { id, ...rest } = user;
+        return res.status(200).json({
+            success: true,
+            data: {
+                _id: id,
+                ...rest,
+                skills: latestResume ? latestResume.skills : [],
+                education: latestResume ? latestResume.education : [],
+                latestResume: latestResume ? {
+                    id: latestResume.id,
+                    filename: latestResume.filename,
+                    createdAt: latestResume.createdAt,
+                    skills: latestResume.skills,
+                    education: latestResume.education,
+                } : null,
+                resumesCount,
+                jobsMatchedCount,
+                avgMatchScore,
+            }
+        });
     } catch (error) {
         console.error('Get profile error:', error);
         res.status(500).json({ success: false, message: 'Server error fetching profile', error: error.message });
@@ -112,5 +150,5 @@ module.exports = {
     saveJob,
     getSavedJobs,
     removeSavedJob,
-    getUserProfile
+    getUserProfile,
 };

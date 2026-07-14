@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import ScoreCard from "@/components/ScoreCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { Search, CheckCircle2, XCircle, Briefcase, Bookmark, BookmarkCheck } from "lucide-react";
+import { Search, CheckCircle2, XCircle, Briefcase, Bookmark, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
+import { useResumeSuggestions } from "@/hooks/useResumeSuggestions";
+import ResumeSuggestionsModal from "@/components/ResumeSuggestionsModal";
 
 interface SkillBreakdown {
   name: string;
@@ -43,9 +45,28 @@ const MatchResults = () => {
   const [jobs, setJobs] = useState<RankedJob[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [resumeUsedId, setResumeUsedId] = useState<string>("");
 
   const { user } = useAuth();
   const [savingJobs, setSavingJobs] = useState<Record<string, boolean>>({});
+
+  const {
+    loading: suggestionsLoading,
+    suggestions,
+    fetchSuggestions,
+    clearSuggestions
+  } = useResumeSuggestions();
+
+  const [selectedJob, setSelectedJob] = useState<{ id: string; title: string; company: string } | null>(null);
+
+  const handleImproveResume = async (jobId: string, jobTitle: string, companyName: string) => {
+    if (!resumeUsedId) {
+      toast.error("No resume found. Please upload a resume first.");
+      return;
+    }
+    setSelectedJob({ id: jobId, title: jobTitle, company: companyName });
+    await fetchSuggestions(resumeUsedId, jobId);
+  };
 
   const handleAutoMatch = async () => {
     if (!user) {
@@ -59,6 +80,7 @@ const MatchResults = () => {
     try {
       const res = await api.get(`/match/auto/${user._id}`);
       setJobs(res.data.data || []);
+      setResumeUsedId(res.data.resumeUsed || "");
       setHasScanned(true);
     } catch (err: any) {
       const msg = err.response?.data?.message || "Match scan failed";
@@ -83,10 +105,77 @@ const MatchResults = () => {
     }
   };
 
+  const renderDemoCard = () => {
+    return (
+      <div className="glass rounded-2xl p-6 relative overflow-hidden border-primary/20 bg-primary/5 mt-4">
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <span className="bg-primary/10 text-primary text-xs font-semibold px-2.5 py-0.5 rounded-full">
+            Demo Preview
+          </span>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-12">
+          <div className="md:col-span-4 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-border pb-6 md:pb-0 md:pr-6">
+            <ScoreCard score={78} label="Match Score" size={100} />
+            <div className="text-center mt-4 space-y-1">
+              <h4 className="font-bold text-lg text-foreground leading-tight">Full Stack Developer</h4>
+              <p className="text-sm text-muted-foreground">SkillSync Systems (Demo)</p>
+              <span className="inline-block mt-2 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                2+ yrs exp required
+              </span>
+            </div>
+          </div>
+
+          <div className="md:col-span-8 space-y-4 flex flex-col justify-center">
+            <div>
+              <h5 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-success" /> You Have
+              </h5>
+              <div className="flex flex-wrap gap-2">
+                {["react", "node.js", "javascript"].map((s) => (
+                  <span key={s} className="inline-flex items-center rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium text-success">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h5 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <XCircle className="h-3 w-3 text-destructive" /> Missing
+              </h5>
+              <div className="flex flex-wrap gap-2">
+                {["aws", "docker"].map((s) => (
+                  <span key={s} className="inline-flex items-center rounded-full bg-destructive/15 px-2.5 py-0.5 text-xs font-medium text-destructive">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-border flex justify-end">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={async () => {
+              setSelectedJob({ id: "demo_job_id", title: "Full Stack Developer (Demo)", company: "SkillSync Systems" });
+              await fetchSuggestions("demo_resume_id", "demo_job_id");
+            }}
+            className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" /> Improve My Resume
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   // Fetch immediately on mount
   useEffect(() => {
     handleAutoMatch();
-  }, []);
+  }, [user]);
 
   return (
     <div className="space-y-8">
@@ -101,19 +190,33 @@ const MatchResults = () => {
       </div>
 
       {errorMsg ? (
-        <div className="glass rounded-2xl p-8 text-center border-destructive/30">
-          <XCircle className="mx-auto h-8 w-8 text-destructive mb-3" />
-          <p className="text-destructive font-medium">{errorMsg}</p>
-          <p className="text-sm text-muted-foreground mt-2">Go to the "Upload Resume" tab to add your skills profile.</p>
+        <div className="space-y-6">
+          <div className="glass rounded-2xl p-8 text-center border-destructive/30">
+            <XCircle className="mx-auto h-8 w-8 text-destructive mb-3" />
+            <p className="text-destructive font-medium">{errorMsg}</p>
+            <p className="text-sm text-muted-foreground mt-2">Go to the "Upload Resume" tab to add your skills profile.</p>
+          </div>
+          
+          <div className="space-y-4">
+             <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Demo Match Preview</h4>
+             {renderDemoCard()}
+          </div>
         </div>
       ) : (
         <AnimatePresence>
           {hasScanned && jobs.length === 0 && (
-             <div className="glass rounded-2xl p-8 text-center border-accent/30">
-              <Briefcase className="mx-auto h-8 w-8 text-muted-foreground mb-3 opacity-50" />
-              <p className="text-muted-foreground">No jobs available to match right now.</p>
-              <p className="text-sm text-muted-foreground mt-1">Check back later or add dummy jobs in the Jobs tab.</p>
-            </div>
+             <div className="space-y-6">
+               <div className="glass rounded-2xl p-8 text-center border-accent/30">
+                 <Briefcase className="mx-auto h-8 w-8 text-muted-foreground mb-3 opacity-50" />
+                 <p className="text-muted-foreground">No jobs available to match right now.</p>
+                 <p className="text-sm text-muted-foreground mt-1">Check back later or add dummy jobs in the Jobs tab.</p>
+               </div>
+               
+               <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Demo Match Preview</h4>
+                  {renderDemoCard()}
+               </div>
+             </div>
           )}
 
           {hasScanned && jobs.length > 0 && (
@@ -196,11 +299,38 @@ const MatchResults = () => {
                         </div>
                      </div>
                   </div>
+
+                  {/* Improve Resume Action */}
+                  <div className="mt-6 pt-4 border-t border-border flex justify-end">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleImproveResume(rankedJob.job._id, rankedJob.job.title, rankedJob.job.company)}
+                      className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" /> Improve My Resume
+                    </Button>
+                  </div>
                 </motion.div>
               ))}
             </div>
           )}
         </AnimatePresence>
+      )}
+
+      {selectedJob && (
+        <ResumeSuggestionsModal
+          isOpen={!!selectedJob}
+          onClose={() => {
+            setSelectedJob(null);
+            clearSuggestions();
+          }}
+          suggestions={suggestions}
+          loading={suggestionsLoading}
+          jobTitle={selectedJob.title}
+          companyName={selectedJob.company}
+          onRetry={() => handleImproveResume(selectedJob.id, selectedJob.title, selectedJob.company)}
+        />
       )}
     </div>
   );

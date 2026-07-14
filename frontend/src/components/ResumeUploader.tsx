@@ -13,6 +13,7 @@ interface UploadResult {
   skills: string[];
   education: string[];
   createdAt: string;
+  experience?: number;
 }
 
 interface ResumeUploaderProps {
@@ -43,6 +44,7 @@ const ResumeUploader = ({ onUploadSuccess }: ResumeUploaderProps) => {
         skills: user.latestResume.skills,
         education: user.latestResume.education || [],
         createdAt: user.latestResume.createdAt,
+        experience: user.latestResume.experience,
       });
     }
   }, [user, hasClearedLatest, result]);
@@ -142,6 +144,12 @@ const ResumeUploader = ({ onUploadSuccess }: ResumeUploaderProps) => {
               <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resume ID</span>
               <p className="mt-1 font-mono text-sm text-foreground">{result._id}</p>
             </div>
+            {result.experience !== undefined && (
+              <div>
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Extracted Experience</span>
+                <p className="mt-1 text-sm font-semibold text-foreground">{result.experience} year{result.experience !== 1 ? 's' : ''}</p>
+              </div>
+            )}
             <div>
               <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Extracted Skills</span>
               <div className="mt-2 flex flex-wrap gap-2">

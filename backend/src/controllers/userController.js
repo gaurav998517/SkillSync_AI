@@ -12,14 +12,16 @@ const saveJob = async (req, res) => {
     try {
         const { userId, jobId } = req.params;
 
-        // Verify user exists
-        const user = await userRepository.findById(userId);
+        // Verify user exists and check for duplicate in parallel
+        const [user, alreadySaved] = await Promise.all([
+            userRepository.findById(userId),
+            savedJobRepository.existsByUserAndJob(userId, jobId)
+        ]);
+
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Check for duplicate
-        const alreadySaved = await savedJobRepository.existsByUserAndJob(userId, jobId);
         if (alreadySaved) {
             return res.status(400).json({ success: false, message: 'Job already saved' });
         }
@@ -45,12 +47,15 @@ const getSavedJobs = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const user = await userRepository.findById(userId);
+        // Fetch user and saved jobs in parallel
+        const [user, savedJobs] = await Promise.all([
+            userRepository.findById(userId),
+            savedJobRepository.findAllByUserId(userId)
+        ]);
+
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-
-        const savedJobs = await savedJobRepository.findAllByUserId(userId);
 
         return res.status(200).json({ success: true, data: savedJobs });
     } catch (error) {
@@ -68,9 +73,18 @@ const removeSavedJob = async (req, res) => {
     try {
         const { userId, jobId } = req.params;
 
-        const user = await userRepository.findById(userId);
+        // Verify user exists and check if the job is saved in parallel
+        const [user, exists] = await Promise.all([
+            userRepository.findById(userId),
+            savedJobRepository.existsByUserAndJob(userId, jobId)
+        ]);
+
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (!exists) {
+            return res.status(404).json({ success: false, message: 'Saved job not found' });
         }
 
         await savedJobRepository.remove(userId, jobId);
@@ -95,13 +109,15 @@ const getUserProfile = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const user = await userRepository.findById(userId);
+        // Fetch user and resumes in parallel
+        const [user, resumes] = await Promise.all([
+            userRepository.findById(userId),
+            resumeRepository.findAllByUserId(userId)
+        ]);
+
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-
-        // Fetch user's resumes
-        const resumes = await resumeRepository.findAllByUserId(userId);
         const latestResume = resumes[0] || null;
 
         // Fetch user's match results if latest resume exists
@@ -134,6 +150,7 @@ const getUserProfile = async (req, res) => {
                     createdAt: latestResume.createdAt,
                     skills: latestResume.skills,
                     education: latestResume.education,
+                    experience: latestResume.experience,
                 } : null,
                 resumesCount,
                 jobsMatchedCount,

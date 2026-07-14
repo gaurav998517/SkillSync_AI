@@ -10,7 +10,7 @@ const { prisma } = require('../config/database');
  * @param {object} resumeData - { userId, filename, filepath, rawText, skills, education }
  * @returns {Promise<Resume>}
  */
-const create = async ({ userId, filename, filepath, rawText, skills = [], education = [] }) => {
+const create = async ({ userId, filename, filepath, rawText, skills = [], education = [], experience = 0 }) => {
     return prisma.resume.create({
         data: {
             userId,
@@ -19,6 +19,7 @@ const create = async ({ userId, filename, filepath, rawText, skills = [], educat
             rawText,
             skills: skills.map((s) => s.toLowerCase().trim()),
             education,
+            experience,
         },
     });
 };

@@ -2,6 +2,7 @@ const resumeRepository = require('../repositories/resumeRepository');
 const userRepository = require('../repositories/userRepository');
 const { parseResumeFile } = require('../services/fileParserService');
 const { extractSkills } = require('../services/skillExtractionService');
+const { extractExperience } = require('../services/experienceService');
 const { withTransaction } = require('../utils/transaction');
 
 /**
@@ -37,6 +38,9 @@ const uploadResume = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No skills extracted from resume' });
         }
 
+        // Extract experience
+        const experience = extractExperience(rawText);
+
         const userId = req.body.userId || null;
 
         // 3. Persist resume + update user's latest resume ID atomically
@@ -51,6 +55,7 @@ const uploadResume = async (req, res) => {
                         rawText,
                         skills: skills.map((s) => s.toLowerCase().trim()),
                         education: [],
+                        experience,
                     },
                 });
 
@@ -70,6 +75,7 @@ const uploadResume = async (req, res) => {
                 rawText,
                 skills,
                 education: [],
+                experience,
             });
         }
 

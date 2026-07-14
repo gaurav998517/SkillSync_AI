@@ -11,12 +11,15 @@ const getMatchScore = async (req, res) => {
     try {
         const { resumeId, jobId } = req.params;
 
-        const resume = await resumeRepository.findById(resumeId);
+        const [resume, job] = await Promise.all([
+            resumeRepository.findById(resumeId),
+            jobRepository.findById(jobId)
+        ]);
+
         if (!resume) {
             return res.status(404).json({ success: false, message: 'Resume not found' });
         }
 
-        const job = await jobRepository.findById(jobId);
         if (!job) {
             return res.status(404).json({ success: false, message: 'Job not found' });
         }
@@ -46,11 +49,12 @@ const getMatchScore = async (req, res) => {
 const getAutoMatchForUser = async (req, res) => {
     try {
         const { userId } = req.params;
+        const { experienceLevel, eligibleOnly } = req.query;
 
-        let latestResume = null;
-        if (userId && userId !== 'testuser123') {
-            latestResume = await resumeRepository.findLatestByUserId(userId);
-        }
+        const [latestResume, allJobs] = await Promise.all([
+            (userId && userId !== 'testuser123') ? resumeRepository.findLatestByUserId(userId) : Promise.resolve(null),
+            jobRepository.findAll()
+        ]);
 
         if (!latestResume) {
             return res.status(404).json({
@@ -59,13 +63,27 @@ const getAutoMatchForUser = async (req, res) => {
             });
         }
 
-        const allJobs = await jobRepository.findAll();
         if (!allJobs || allJobs.length === 0) {
             return res.status(200).json({ success: true, data: [], message: 'No jobs available to match against.' });
         }
 
+        let filteredJobs = allJobs;
+
+        if (experienceLevel === 'entry') {
+            filteredJobs = filteredJobs.filter(job => job.minExperience >= 0 && job.minExperience <= 2);
+        } else if (experienceLevel === 'mid') {
+            filteredJobs = filteredJobs.filter(job => job.minExperience >= 3 && job.minExperience <= 5);
+        } else if (experienceLevel === 'senior') {
+            filteredJobs = filteredJobs.filter(job => job.minExperience >= 6);
+        }
+
+        if (eligibleOnly === 'true') {
+            const userExp = latestResume.experience || 0;
+            filteredJobs = filteredJobs.filter(job => job.minExperience <= userExp);
+        }
+
         const rankedJobs = await Promise.all(
-            allJobs.map(async (job) => {
+            filteredJobs.map(async (job) => {
                 const matchResult = await calculateMatch(latestResume.skills, job.requiredSkills);
 
                 matchRepository.upsert({

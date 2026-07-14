@@ -36,10 +36,13 @@ const JobUploader = () => {
     description: "",
   });
 
-  const fetchJobs = async () => {
+  const [experienceFilter, setExperienceFilter] = useState("all");
+
+  const fetchJobs = async (expLevel = experienceFilter) => {
     try {
       setFetching(true);
-      const res = await api.get("/jobs");
+      const queryParam = expLevel !== "all" ? `?experienceLevel=${expLevel}` : "";
+      const res = await api.get(`/jobs${queryParam}`);
       setJobs(res.data.data || []);
     } catch (err) {
       toast.error("Failed to load jobs");
@@ -49,8 +52,8 @@ const JobUploader = () => {
   };
 
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    fetchJobs(experienceFilter);
+  }, [experienceFilter]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -246,12 +249,27 @@ const JobUploader = () => {
 
       {/* Available Jobs List */}
       <div>
-        <h3 className="mb-4 text-lg font-semibold text-foreground flex items-center gap-2">
-          Available Jobs
-          <span className="ml-2 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-            {jobs.length} total
-          </span>
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            Available Jobs
+            <span className="ml-2 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              {jobs.length} total
+            </span>
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Experience:</span>
+            <select
+              value={experienceFilter}
+              onChange={(e) => setExperienceFilter(e.target.value)}
+              className="bg-background/50 border border-border/60 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary glass"
+            >
+              <option value="all">All levels</option>
+              <option value="entry">Entry Level (0-2 yrs)</option>
+              <option value="mid">Mid Level (3-5 yrs)</option>
+              <option value="senior">Senior Level (6+ yrs)</option>
+            </select>
+          </div>
+        </div>
 
         {fetching ? (
           <p className="text-sm text-muted-foreground">Loading jobs...</p>

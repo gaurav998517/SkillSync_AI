@@ -46,6 +46,8 @@ const MatchResults = () => {
   const [hasScanned, setHasScanned] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [resumeUsedId, setResumeUsedId] = useState<string>("");
+  const [experienceFilter, setExperienceFilter] = useState("all");
+  const [eligibleOnly, setEligibleOnly] = useState(false);
 
   const { user } = useAuth();
   const [savingJobs, setSavingJobs] = useState<Record<string, boolean>>({});
@@ -68,17 +70,21 @@ const MatchResults = () => {
     await fetchSuggestions(resumeUsedId, jobId);
   };
 
-  const handleAutoMatch = async () => {
+  const handleAutoMatch = async (expLevel = experienceFilter, eligible = eligibleOnly) => {
     if (!user) {
       setErrorMsg("Please log in to see job matches.");
       return;
     }
     
     setLoading(true);
-    setHasScanned(false);
     setErrorMsg("");
     try {
-      const res = await api.get(`/match/auto/${user._id}`);
+      const queryParams = [];
+      if (expLevel !== "all") queryParams.push(`experienceLevel=${expLevel}`);
+      if (eligible) queryParams.push(`eligibleOnly=true`);
+      const queryString = queryParams.length > 0 ? `?${queryParams.join("&")}` : "";
+
+      const res = await api.get(`/match/auto/${user._id}${queryString}`);
       setJobs(res.data.data || []);
       setResumeUsedId(res.data.resumeUsed || "");
       setHasScanned(true);
@@ -90,6 +96,12 @@ const MatchResults = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user && hasScanned) {
+      handleAutoMatch(experienceFilter, eligibleOnly);
+    }
+  }, [experienceFilter, eligibleOnly]);
 
   const handleSaveJob = async (jobId: string) => {
     if (!user) return;
@@ -204,6 +216,35 @@ const MatchResults = () => {
         </div>
       ) : (
         <AnimatePresence>
+          {hasScanned && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-background/30 p-4 rounded-xl border border-border/40 glass mb-6">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Experience level:</span>
+                <select
+                  value={experienceFilter}
+                  onChange={(e) => setExperienceFilter(e.target.value)}
+                  className="bg-background/50 border border-border/60 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary glass"
+                >
+                  <option value="all">All levels</option>
+                  <option value="entry">Entry Level (0-2 yrs)</option>
+                  <option value="mid">Mid Level (3-5 yrs)</option>
+                  <option value="senior">Senior Level (6+ yrs)</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer text-muted-foreground select-none">
+                  <input
+                    type="checkbox"
+                    checked={eligibleOnly}
+                    onChange={(e) => setEligibleOnly(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary focus:ring-opacity-50"
+                  />
+                  Show eligible roles only
+                </label>
+              </div>
+            </div>
+          )}
+
           {hasScanned && jobs.length === 0 && (
              <div className="space-y-6">
                <div className="glass rounded-2xl p-8 text-center border-accent/30">

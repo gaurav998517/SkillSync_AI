@@ -35,7 +35,16 @@ const createJob = async (req, res) => {
  */
 const getAllJobs = async (req, res) => {
     try {
-        const jobs = await jobRepository.findAll();
+        const { experienceLevel } = req.query;
+        let jobs = await jobRepository.findAll();
+
+        if (experienceLevel === 'entry') {
+            jobs = jobs.filter(job => job.minExperience >= 0 && job.minExperience <= 2);
+        } else if (experienceLevel === 'mid') {
+            jobs = jobs.filter(job => job.minExperience >= 3 && job.minExperience <= 5);
+        } else if (experienceLevel === 'senior') {
+            jobs = jobs.filter(job => job.minExperience >= 6);
+        }
 
         // Normalize id → _id for all jobs
         const normalized = jobs.map(({ id, ...rest }) => ({ _id: id, ...rest }));

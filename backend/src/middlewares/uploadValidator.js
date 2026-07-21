@@ -10,6 +10,14 @@ const MAGIC_NUMBERS = {
     docx: Buffer.from([0x50, 0x4b, 0x03, 0x04])
 };
 
+// Extensions that indicate a hidden/disguised executable or script when found
+// as an interior segment of a multi-dot filename (e.g. "resume.php.pdf").
+const DANGEROUS_INTERIOR_EXTENSIONS = new Set([
+    'exe', 'sh', 'bat', 'cmd', 'com', 'scr', 'vbs', 'ps1', 'jar',
+    'js', 'jsp', 'asp', 'aspx', 'php', 'php3', 'php4', 'php5', 'phtml',
+    'pl', 'py', 'rb', 'dll', 'msi', 'apk', 'app', 'dmg', 'pkg', 'cgi'
+]);
+
 /**
  * Specific rate limiting for file uploads to prevent resource exhaustion attacks.
  */
@@ -54,10 +62,19 @@ const validateResumeUpload = (req, res, next) => {
     };
 
     // 2. Validate double extension attack protection
-    // Rejects files like resume.pdf.exe or resume.exe.pdf
-    const dotsCount = (originalname.match(/\./g) || []).length;
-    if (dotsCount > 1) {
-        return rejectFile('Upload rejected. Multiple extensions or double extensions are not allowed.');
+    // Rejects files like resume.php.pdf or resume.exe.pdf, where a hidden
+    // executable/script extension is disguised behind a legitimate one.
+    // Filenames with multiple dots that don't hide such an extension
+    // (e.g. "John.Doe_Resume.pdf") are allowed.
+    const nameSegments = originalname.split('.');
+    if (nameSegments.length > 2) {
+        const interiorSegments = nameSegments.slice(1, -1);
+        const hasDangerousInterior = interiorSegments.some((seg) =>
+            DANGEROUS_INTERIOR_EXTENSIONS.has(seg.toLowerCase())
+        );
+        if (hasDangerousInterior) {
+            return rejectFile('Upload rejected. Multiple extensions or double extensions are not allowed.');
+        }
     }
 
     // 3. Validate file extension

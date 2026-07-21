@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { verifyToken } = require('../middlewares/authMiddleware');
+const { verifyToken, requireEmailVerified } = require('../middlewares/authMiddleware');
 const { requireSelf } = require('../middlewares/ownerMiddleware');
 const { uploadRateLimiter, validateResumeUpload } = require('../middlewares/uploadValidator');
 const resumeController = require('../controllers/resumeController');
@@ -22,8 +22,9 @@ const upload = multer({ storage: storage });
 
 // POST /api/resume/upload
 // Requires JWT verification, upload rate limit, multipart parse, user match validation, and magic number check
-router.post('/upload', 
+router.post('/upload',
     verifyToken,
+    requireEmailVerified,
     uploadRateLimiter,
     upload.single('resume'),
     requireSelf,

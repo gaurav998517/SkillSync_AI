@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const userRepository = require('../repositories/userRepository');
 
 /**
  * JWT Authentication Middleware
@@ -64,7 +65,43 @@ const requireRole = (...allowedRoles) => {
     };
 };
 
+/**
+ * Requires the acting user's email to be verified.
+ * Checks the current DB value rather than a JWT claim — the JWT is signed
+ * once at signup/login, so a claim would still read "unverified" for the
+ * rest of that session even after the user clicks their verification link.
+ */
+const requireEmailVerified = async (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({
+            success: false,
+            message: 'Unauthorized. Authentication required.'
+        });
+    }
+
+    try {
+        const user = await userRepository.findById(req.user._id);
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Account not found.' });
+        }
+
+        if (!user.emailVerified) {
+            return res.status(403).json({
+                success: false,
+                code: 'EMAIL_NOT_VERIFIED',
+                message: 'Please verify your email address before performing this action.'
+            });
+        }
+
+        return next();
+    } catch (error) {
+        console.error('Error checking email verification status:', error);
+        return res.status(500).json({ success: false, message: 'Server error verifying account status.' });
+    }
+};
+
 module.exports = {
     verifyToken,
-    requireRole
+    requireRole,
+    requireEmailVerified
 };

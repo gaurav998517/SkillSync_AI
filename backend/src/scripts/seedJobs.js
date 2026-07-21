@@ -44,12 +44,12 @@ async function seed() {
         console.log('Seeding dummy jobs to PostgreSQL...');
         const result = await jobRepository.createMany(dummyJobs);
         console.log(`Seeding completed successfully! Created ${result.count} jobs.`);
+        await prisma.$disconnect();
         process.exit(0);
     } catch (error) {
         console.error('Error seeding jobs:', error);
-        process.exit(1);
-    } finally {
         await prisma.$disconnect();
+        process.exit(1);
     }
 }
 

@@ -8,28 +8,63 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
+const RECRUITER_ID = '00000000-0000-0000-0000-000000000002';
+
 const makeAdminToken = () =>
     jwt.sign(
-        { _id: '00000000-0000-0000-0000-000000000001', email: 'admin@test.com', role: 'admin' },
+        { _id: ADMIN_ID, email: 'admin@test.com', role: 'admin' },
         process.env.JWT_SECRET || 'fallback_secret_for_dev',
         { expiresIn: '1h' }
     );
 
 const makeRecruiterToken = () =>
     jwt.sign(
-        { _id: '00000000-0000-0000-0000-000000000002', email: 'recruiter@test.com', role: 'recruiter' },
+        { _id: RECRUITER_ID, email: 'recruiter@test.com', role: 'recruiter' },
         process.env.JWT_SECRET || 'fallback_secret_for_dev',
         { expiresIn: '1h' }
     );
 
-beforeAll(async () => await prisma.$connect());
+beforeAll(async () => {
+    await prisma.$connect();
+    // requireEmailVerified checks the DB, not the JWT claim — these routes
+    // are role-gated routes exercised with hand-signed tokens, so the
+    // corresponding users must actually exist (and be verified) in the DB.
+    await prisma.user.upsert({
+        where: { id: RECRUITER_ID },
+        update: { emailVerified: true },
+        create: {
+            id: RECRUITER_ID,
+            name: 'Test Recruiter',
+            email: 'recruiter@test.com',
+            passwordHash: 'test-hash-not-used-for-login',
+            role: 'recruiter',
+            emailVerified: true,
+        },
+    });
+    await prisma.user.upsert({
+        where: { id: ADMIN_ID },
+        update: { emailVerified: true },
+        create: {
+            id: ADMIN_ID,
+            name: 'Test Admin',
+            email: 'admin@test.com',
+            passwordHash: 'test-hash-not-used-for-login',
+            role: 'admin',
+            emailVerified: true,
+        },
+    });
+});
 afterEach(async () => {
     await prisma.savedJob.deleteMany({});
     await prisma.matchResult.deleteMany({});
     await prisma.aiSuggestion.deleteMany({});
     await prisma.job.deleteMany({});
 });
-afterAll(async () => await prisma.$disconnect());
+afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: { in: [RECRUITER_ID, ADMIN_ID] } } });
+    await prisma.$disconnect();
+});
 
 describe('GET /api/jobs', () => {
     it('should return empty array when no jobs exist', async () => {

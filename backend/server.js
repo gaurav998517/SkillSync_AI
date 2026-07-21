@@ -9,13 +9,16 @@ const { deleteExpired } = require('./src/repositories/aiSuggestionRepository');
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
-    // 1. Verify database connectivity
     try {
         await prisma.$connect();
         console.log('[DATABASE] PostgreSQL connected via Prisma.');
     } catch (err) {
         console.error('[DATABASE] Failed to connect to PostgreSQL:', err.message);
-        process.exit(1);
+        if (process.env.NODE_ENV === 'production') {
+            process.exit(1);
+        } else {
+            console.warn('[DATABASE] Continuing server startup in development mode despite database error.');
+        }
     }
 
     // 2. Evict stale AI suggestion cache entries from previous sessions

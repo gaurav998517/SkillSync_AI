@@ -14,14 +14,33 @@ jest.mock('../../services/joobleService', () => ({
     fetchJobsFromJooble: jest.fn(),
 }));
 
+const RECRUITER_ID = '00000000-0000-0000-0000-000000000002';
+
 const makeRecruiterToken = () =>
     jwt.sign(
-        { _id: '00000000-0000-0000-0000-000000000002', email: 'recruiter@test.com', role: 'recruiter' },
+        { _id: RECRUITER_ID, email: 'recruiter@test.com', role: 'recruiter' },
         process.env.JWT_SECRET || 'fallback_secret_for_dev',
         { expiresIn: '1h' }
     );
 
-beforeAll(async () => await prisma.$connect());
+beforeAll(async () => {
+    await prisma.$connect();
+    // requireEmailVerified checks the DB, not the JWT claim — this route is
+    // exercised with a hand-signed token, so the user must actually exist
+    // (and be verified) in the DB.
+    await prisma.user.upsert({
+        where: { id: RECRUITER_ID },
+        update: { emailVerified: true },
+        create: {
+            id: RECRUITER_ID,
+            name: 'Test Recruiter',
+            email: 'recruiter@test.com',
+            passwordHash: 'test-hash-not-used-for-login',
+            role: 'recruiter',
+            emailVerified: true,
+        },
+    });
+});
 afterEach(async () => {
     await prisma.savedJob.deleteMany({});
     await prisma.matchResult.deleteMany({});
@@ -29,7 +48,10 @@ afterEach(async () => {
     await prisma.job.deleteMany({});
     jest.clearAllMocks();
 });
-afterAll(async () => await prisma.$disconnect());
+afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: RECRUITER_ID } });
+    await prisma.$disconnect();
+});
 
 describe('POST /api/jobs/import-jooble', () => {
     it('should reject requests without auth token', async () => {

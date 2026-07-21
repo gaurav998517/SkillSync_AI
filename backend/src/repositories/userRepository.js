@@ -60,10 +60,10 @@ const findByIdWithPassword = async (id) => {
 
 /**
  * Create a new user. Automatically hashes the plaintext password.
- * @param {object} userData - { name, email, password (plaintext), role }
+ * @param {object} userData - { name, email, password (plaintext), role, emailVerified }
  * @returns {Promise<User>} Created user (without passwordHash)
  */
-const create = async ({ name, email, password, role = 'applicant' }) => {
+const create = async ({ name, email, password, role = 'applicant', emailVerified = false }) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
@@ -73,12 +73,14 @@ const create = async ({ name, email, password, role = 'applicant' }) => {
             email: email.toLowerCase(),
             passwordHash,
             role,
+            emailVerified,
         },
         select: {
             id: true,
             name: true,
             email: true,
             role: true,
+            emailVerified: true,
             isActive: true,
             createdAt: true,
             updatedAt: true,
@@ -115,6 +117,7 @@ const update = async (id, updateData) => {
             name: true,
             email: true,
             role: true,
+            emailVerified: true,
             isActive: true,
             createdAt: true,
             updatedAt: true,

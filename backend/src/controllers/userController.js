@@ -33,6 +33,10 @@ const saveJob = async (req, res) => {
         if (error.code === 'P2003') {
             return res.status(404).json({ success: false, message: 'Job not found' });
         }
+        // Handle unique-constraint violation (concurrent duplicate save)
+        if (error.code === 'P2002') {
+            return res.status(400).json({ success: false, message: 'Job already saved' });
+        }
         console.error('Save job error:', error);
         res.status(500).json({ success: false, message: 'Server error saving job', error: error.message });
     }

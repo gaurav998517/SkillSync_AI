@@ -8,6 +8,7 @@ const { prisma } = require('../config/database');
  *   USER_LOGIN       — successful login
  *   LOGIN_FAILED     — failed login attempt (wrong password or user not found)
  *   PASSWORD_CHANGE  — user updates their password
+ *   EMAIL_VERIFIED   — user confirmed their email address via verification link
  *
  * All writes are non-blocking (fire-and-forget with error catch) so audit
  * logging never delays or breaks the main request flow.

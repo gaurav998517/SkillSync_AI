@@ -1,5 +1,13 @@
 const { PrismaClient } = require('@prisma/client');
 
+// Sanitize database connection environment variables (e.g. remove leading/trailing quotes pasted by mistake)
+if (process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/^["']|["']$/g, '');
+}
+if (process.env.DIRECT_URL) {
+    process.env.DIRECT_URL = process.env.DIRECT_URL.replace(/^["']|["']$/g, '');
+}
+
 /**
  * Prisma Client Singleton
  *

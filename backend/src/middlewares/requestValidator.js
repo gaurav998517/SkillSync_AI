@@ -2,64 +2,6 @@
  * Middleware functions to validate incoming request payloads.
  */
 
-const validateSignup = (req, res, next) => {
-    const { name, email, password } = req.body;
-
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-        return res.status(400).json({ success: false, message: 'Name is required and must be a valid string.' });
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email)) {
-        return res.status(400).json({ success: false, message: 'Invalid or missing email address.' });
-    }
-
-    if (!password || typeof password !== 'string' || password.length < 6) {
-        return res.status(400).json({ success: false, message: 'Password is required and must be at least 6 characters long.' });
-    }
-
-    // Role is not accepted from public signup input — see authController.signup.
-    return next();
-};
-
-const validateLogin = (req, res, next) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ success: false, message: 'Both email and password are required.' });
-    }
-
-    return next();
-};
-
-const validateVerifyEmail = (req, res, next) => {
-    const { token } = req.body;
-
-    if (!token || typeof token !== 'string' || token.trim() === '') {
-        return res.status(400).json({ success: false, message: 'Verification token is required.' });
-    }
-
-    return next();
-};
-
-const validateResendVerification = (req, res, next) => {
-    const { email } = req.body;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email)) {
-        return res.status(400).json({ success: false, message: 'A valid email address is required.' });
-    }
-    return next();
-};
-
-const validateForgotPassword = (req, res, next) => {
-    const { email } = req.body;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email)) {
-        return res.status(400).json({ success: false, message: 'A valid email address is required.' });
-    }
-    return next();
-};
-
 const validateJob = (req, res, next) => {
     const { title, company, requiredSkills } = req.body;
 
@@ -103,11 +45,6 @@ const validateGoogleLogin = (req, res, next) => {
 };
 
 module.exports = {
-    validateSignup,
-    validateLogin,
-    validateVerifyEmail,
-    validateResendVerification,
-    validateForgotPassword,
     validateJob,
     validateSuggestions,
     validateGoogleLogin

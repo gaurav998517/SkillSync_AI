@@ -35,37 +35,18 @@ const findById = async (id) => {
     });
 };
 
-/**
- * Find a user by UUID — includes password hash.
- * Use ONLY for authentication checks; never return this to the client.
- * @param {string} id
- * @returns {Promise<User|null>}
- */
-const findByIdWithPassword = async (id) => {
-    return prisma.user.findFirst({
-        where: { id, isDeleted: false },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            passwordHash: true,
-            role: true,
-            isActive: true,
-            isDeleted: true,
-            createdAt: true,
-            updatedAt: true,
-        },
-    });
-};
 
 /**
- * Create a new user. Automatically hashes the plaintext password.
+ * Create a new user. Automatically hashes the plaintext password if provided.
  * @param {object} userData - { name, email, password (plaintext), role, emailVerified }
  * @returns {Promise<User>} Created user (without passwordHash)
  */
 const create = async ({ name, email, password, role = 'applicant', emailVerified = false }) => {
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    let passwordHash = null;
+    if (password) {
+        const salt = await bcrypt.genSalt(10);
+        passwordHash = await bcrypt.hash(password, salt);
+    }
 
     return prisma.user.create({
         data: {
@@ -138,36 +119,10 @@ const softDelete = async (id) => {
     });
 };
 
-/**
- * Verify a plaintext password against the stored hash.
- * @param {string} plaintext - Password entered by user
- * @param {string} hash - Stored bcrypt hash
- * @returns {Promise<boolean>}
- */
-const verifyPassword = async (plaintext, hash) => {
-    return bcrypt.compare(plaintext, hash);
-};
-
-/**
- * Upgrade a plaintext password to bcrypt hash.
- * Used for legacy password migration on login.
- * @param {string} id
- * @param {string} plaintextPassword
- * @returns {Promise<void>}
- */
-const upgradePassword = async (id, plaintextPassword) => {
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(plaintextPassword, salt);
-    await prisma.user.update({ where: { id }, data: { passwordHash } });
-};
-
 module.exports = {
     findByEmail,
     findById,
-    findByIdWithPassword,
     create,
     update,
     softDelete,
-    verifyPassword,
-    upgradePassword,
 };

@@ -98,20 +98,4 @@ describe('UserRepository', () => {
             expect(raw.isDeleted).toBe(true);
         });
     });
-
-    describe('verifyPassword()', () => {
-        it('should return true for correct password', async () => {
-            await userRepository.create(testUser);
-            const raw = await prisma.user.findFirst({ where: { email: testUser.email } });
-            const result = await userRepository.verifyPassword(testUser.password, raw.passwordHash);
-            expect(result).toBe(true);
-        });
-
-        it('should return false for wrong password', async () => {
-            await userRepository.create(testUser);
-            const raw = await prisma.user.findFirst({ where: { email: testUser.email } });
-            const result = await userRepository.verifyPassword('wrongpassword', raw.passwordHash);
-            expect(result).toBe(false);
-        });
-    });
 });

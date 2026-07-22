@@ -43,7 +43,7 @@ model User {
   id            String   @id @default(uuid()) @db.Uuid
   name          String
   email         String   @unique
-  passwordHash  String   @map("password_hash")
+  passwordHash  String?  @map("password_hash")
   role          Role     @default(applicant)
   emailVerified Boolean  @default(false) @map("email_verified")
   isActive      Boolean  @default(true) @map("is_active")
@@ -56,8 +56,6 @@ model User {
   savedJobs               SavedJob[]
   sessions                Session[]
   auditLogs               AuditLog[]
-  emailVerificationTokens EmailVerificationToken[]
-  passwordResetTokens     PasswordResetToken[]
 
   @@index([email])
   @@index([isDeleted])
@@ -186,38 +184,6 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
-}
-
-/// Single-use tokens for verifying a user's email address after signup
-model EmailVerificationToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  token     String    @unique
-  expiresAt DateTime  @map("expires_at")
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("email_verification_tokens")
-}
-
-/// Single-use tokens for resetting a user's password (expires in 15 minutes, enforced via usedAt)
-model PasswordResetToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  token     String    @unique
-  expiresAt DateTime  @map("expires_at")
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("password_reset_tokens")
 }
 
 // ============================================================

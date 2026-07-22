@@ -74,12 +74,17 @@ The script is **idempotent** — safe to re-run after failures. It saves a `migr
 
 ## Step 4 — Deploy Backend on Render
 
+> [!IMPORTANT]
+> `package.json` lives at the **repo root**, not inside `backend/`. Setting Root Directory to `backend` makes `npm install` fail with `ENOENT: package.json` on every deploy. Leave Root Directory blank/root.
+
+A `render.yaml` Blueprint is included at the repo root with the correct settings below — see "Deploy via Blueprint" underneath. To configure manually instead:
+
 1. Go to [https://render.com](https://render.com) → **New Web Service**
 2. Connect your GitHub repo (`SkillSync_Ai`)
 3. Configure:
-   - **Root Directory**: `backend`
-   - **Build Command**: `npm install && npx prisma generate && npx prisma migrate deploy`
-   - **Start Command**: `node server.js`
+   - **Root Directory**: *(leave blank — repo root)*
+   - **Build Command**: `npm install && npx prisma generate --schema=backend/prisma/schema.prisma && npx prisma migrate deploy --schema=backend/prisma/schema.prisma`
+   - **Start Command**: `npm start`
    - **Environment**: `Node`
 4. Add Environment Variables (from the Render dashboard):
 
@@ -96,6 +101,12 @@ The script is **idempotent** — safe to re-run after failures. It saves a `migr
 | `FRONTEND_URL` | Your Vercel frontend URL |
 
 5. Click **Deploy** — Render runs `prisma migrate deploy` on every deploy automatically via the build command.
+
+### Deploy via Blueprint (recommended)
+
+The repo root includes `render.yaml`. In Render, choose **New → Blueprint**, point it at this repo, and it will create the web service with the correct Root Directory/Build/Start commands pre-filled — you only need to fill in the secret env vars (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `GROQ_API_KEY`, `FRONTEND_URL`) marked `sync: false`.
+
+> If you already have an existing manually-configured service, Blueprint sync only applies to services created *from* the Blueprint — update the existing service's settings by hand to match Step 4 above, or delete and recreate it via Blueprint.
 
 ---
 

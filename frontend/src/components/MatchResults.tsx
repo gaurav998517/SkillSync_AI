@@ -109,7 +109,6 @@ const MatchResults = () => {
     try {
       await api.post(`/users/${user._id}/jobs/${jobId}`);
       toast.success("Job saved successfully!");
-      // We could update local state if we want to show a saved indicator, but standard success toast is fine for now
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to save job");
     } finally {
@@ -184,10 +183,13 @@ const MatchResults = () => {
     );
   };
 
-  // Fetch immediately on mount
+  // Fetch immediately on mount. Depend on user?._id rather than the user
+  // object itself, since refreshUser() replaces the user object reference
+  // on every profile refresh without changing the id, which would otherwise
+  // re-trigger this fetch and race with the initial request.
   useEffect(() => {
     handleAutoMatch();
-  }, [user]);
+  }, [user?._id]);
 
   return (
     <div className="space-y-8">
@@ -196,7 +198,7 @@ const MatchResults = () => {
           <h3 className="text-lg font-semibold text-foreground">Auto-Match Analysis</h3>
           <p className="text-sm text-muted-foreground">Finding the best roles based on your latest resume skills.</p>
         </div>
-        <Button variant="gradient" onClick={handleAutoMatch} disabled={loading}>
+        <Button variant="gradient" onClick={() => handleAutoMatch()} disabled={loading}>
           {loading ? <LoadingSpinner size={16} /> : <><Search className="mr-2 h-4 w-4" /> Rescan</>}
         </Button>
       </div>

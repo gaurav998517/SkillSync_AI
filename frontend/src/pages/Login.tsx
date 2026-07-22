@@ -1,8 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { motion } from "framer-motion";
@@ -10,31 +7,87 @@ import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/services/api";
 
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      toast.error("Please fill in all fields");
-      return;
-    }
+  const handleGoogleLoginSuccess = async (response: any) => {
     setLoading(true);
     try {
-      const res = await api.post("/auth/login", { email, password });
-      login(res.data.token, res.data.user);
-      toast.success("Welcome back!");
-      navigate("/dashboard");
+      const res = await api.post("/auth/google", {
+        credential: response.credential,
+      });
+      if (res.data.success) {
+        login(res.data.token, res.data.user);
+        toast.success("Welcome back!");
+        navigate("/dashboard");
+      } else {
+        toast.error(res.data.message || "Google authentication failed");
+      }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Login failed");
+      toast.error(
+        err.response?.data?.message || "Server error during Google authentication"
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let checkInterval: any;
+
+    const initGoogleSignIn = () => {
+      if (window.google?.accounts?.id) {
+        const rawClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        const clientId = rawClientId ? rawClientId.replace(/['"]/g, '') : '';
+        if (!clientId) {
+          console.warn("VITE_GOOGLE_CLIENT_ID is not configured in environment variables");
+          clearInterval(checkInterval);
+          return;
+        }
+
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleLoginSuccess,
+        });
+
+        const btnEl = document.getElementById("google-signin-btn");
+        if (btnEl) {
+          window.google.accounts.id.renderButton(
+            btnEl,
+            {
+              theme: "outline",
+              size: "large",
+              width: 320,
+              text: "continue_with",
+              shape: "rectangular",
+            }
+          );
+          clearInterval(checkInterval);
+        }
+      }
+    };
+
+    let attempts = 0;
+    checkInterval = setInterval(() => {
+      attempts++;
+      if (window.google?.accounts?.id || attempts > 100) {
+        initGoogleSignIn();
+        clearInterval(checkInterval);
+      }
+    }, 100);
+
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+    };
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
@@ -53,31 +106,33 @@ const Login = () => {
             </div>
             <span className="text-lg font-bold text-foreground">SkillSync AI</span>
           </Link>
-          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-foreground">Sign In</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Connect via Google to access your dashboard
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-8 space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
-          <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
-            {loading ? <LoadingSpinner size={18} /> : "Sign In"}
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <Link to="/signup" className="text-primary hover:underline">Sign up</Link>
-        </p>
+        <div className="glass rounded-2xl p-8 space-y-6 flex flex-col items-center">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-6 space-y-4">
+              <LoadingSpinner size={32} />
+              <p className="text-sm text-muted-foreground animate-pulse">Authenticating...</p>
+            </div>
+          ) : (
+            <>
+              <div className="text-center space-y-2">
+                <p className="text-xs text-muted-foreground leading-relaxed px-4">
+                  By signing in, you agree to our Terms of Service and Privacy Policy. We protect your data using industry-standard security.
+                </p>
+              </div>
+              <div id="google-signin-btn" className="flex justify-center w-full min-h-[44px]" />
+            </>
+          )}
+        </div>
       </motion.div>
     </div>
   );
 };
 
 export default Login;
+

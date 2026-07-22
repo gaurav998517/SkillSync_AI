@@ -19,11 +19,8 @@ const Navbar = () => {
         </Link>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/login">Login</Link>
-          </Button>
           <Button variant="gradient" size="sm" asChild>
-            <Link to="/signup">Get Started</Link>
+            <Link to="/login">Sign In</Link>
           </Button>
         </div>
       </div>

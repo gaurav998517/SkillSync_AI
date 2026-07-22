@@ -109,7 +109,7 @@ const Landing = () => {
 
           <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={3} className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button size="lg" variant="gradient" className="h-12 px-8 text-base" asChild>
-              <Link to="/signup">
+              <Link to="/login">
                 Get Started Free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
@@ -238,7 +238,7 @@ const Landing = () => {
               Join thousands of professionals using AI-powered resume matching to land their dream jobs.
             </p>
             <Button size="lg" variant="gradient" className="h-12 px-8 text-base" asChild>
-              <Link to="/signup">
+              <Link to="/login">
                 Start Free Analysis
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

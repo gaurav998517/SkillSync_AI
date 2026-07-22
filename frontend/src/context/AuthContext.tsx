@@ -6,6 +6,7 @@ interface User {
   name: string;
   email: string;
   role?: 'applicant' | 'recruiter';
+  emailVerified?: boolean;
   skills?: string[];
   education?: string[];
   resumesCount?: number;
@@ -17,6 +18,7 @@ interface User {
     createdAt: string;
     skills: string[];
     education: string[];
+    experience?: number;
   } | null;
 }
 

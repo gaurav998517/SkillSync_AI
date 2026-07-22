@@ -182,6 +182,26 @@ NeonDB **automatically takes point-in-time backups** on paid plans. On the free 
 pg_dump "$(DATABASE_URL)" > backup_$(date +%Y%m%d).sql
 ```
 
+## Troubleshooting Connection/TLS Errors
+
+### Neon/Render Database Connection Issues
+If you encounter database timeouts, DNS resolution errors, or the following error during deployment on Render:
+```text
+[DATABASE] Failed to connect to PostgreSQL: Error opening a TLS connection: OpenSSL error
+```
+
+This is caused by a combination of Render's DNS resolution bottlenecks and Prisma's strict hostname certificate validation (which is performed in Rust).
+
+#### The Fix:
+1. **Use direct IP routing:** Replace the Neon hostname (e.g. `ep-XXX.REGION.aws.neon.tech`) in your connection string with the direct AWS Neon endpoint IP (e.g., `3.0.167.45`).
+2. **Bypass hostname TLS verification:** Because the SSL certificate is issued for `*.neon.tech` and not the IP address, you **must** append `sslmode=no-verify` and pass the endpoint parameter.
+
+**Connection String Format:**
+```text
+postgresql://neondb_owner:PASSWORD@3.0.167.45/neondb?sslmode=no-verify&options=endpoint%3Dep-falling-poetry-aowzfr5x
+```
+*(Ensure to replace `PASSWORD` and `ep-falling-poetry-aowzfr5x` with your actual Neon credentials and endpoint name)*
+
 ---
 
 ## Scaling Recommendations

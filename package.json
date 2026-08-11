@@ -13,7 +13,8 @@
     "prisma:studio": "cd backend && prisma studio --schema=prisma/schema.prisma",
     "prisma:reset": "cd backend && prisma migrate reset --schema=prisma/schema.prisma",
     "db:migrate": "node backend/scripts/migrateFirestoreToPostgres.js",
-    "db:migrate:dry": "node backend/scripts/migrateFirestoreToPostgres.js --dry-run"
+    "db:migrate:dry": "node backend/scripts/migrateFirestoreToPostgres.js --dry-run",
+    "vercel-build": "npm run prisma:generate && cd frontend && npm install && npm run build"
   },
   "repository": {
     "type": "git",

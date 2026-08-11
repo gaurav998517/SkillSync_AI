@@ -190,17 +190,64 @@ If you encounter database timeouts, DNS resolution errors, or the following erro
 [DATABASE] Failed to connect to PostgreSQL: Error opening a TLS connection: OpenSSL error
 ```
 
-This is caused by a combination of Render's DNS resolution bottlenecks and Prisma's strict hostname certificate validation (which is performed in Rust).
+> [!CAUTION]
+> **Never pin a raw IP address in the connection string.** A previous revision of this guide
+> recommended replacing the Neon hostname with a hard-coded IP (`3.0.167.45`) plus
+> `sslmode=no-verify&options=endpoint%3D...`. That IP is an AWS load-balancer address that Neon
+> rotates without notice. When it rotated, every Render deploy began failing the build at
+> `prisma migrate deploy` with:
+> ```text
+> Error: P1001: Can't reach database server at `3.0.167.45:5432`
+> ```
+> Always connect by hostname so DNS can follow the rotation.
 
-#### The Fix:
-1. **Use direct IP routing:** Replace the Neon hostname (e.g. `ep-XXX.REGION.aws.neon.tech`) in your connection string with the direct AWS Neon endpoint IP (e.g., `3.0.167.45`).
-2. **Bypass hostname TLS verification:** Because the SSL certificate is issued for `*.neon.tech` and not the IP address, you **must** append `sslmode=no-verify` and pass the endpoint parameter.
+#### The Real Cause
 
-**Connection String Format:**
+The TLS error is almost always a **wrong or incomplete hostname**, not a certificate problem.
+Neon places each project on a numbered compute cluster, and that cluster appears as an extra
+label in the hostname:
+
 ```text
-postgresql://neondb_owner:PASSWORD@3.0.167.45/neondb?sslmode=no-verify&options=endpoint%3Dep-falling-poetry-aowzfr5x
+ep-<endpoint-id>.c-<N>.<region>.aws.neon.tech
+                 ^^^^^ easy to omit
 ```
-*(Ensure to replace `PASSWORD` and `ep-falling-poetry-aowzfr5x` with your actual Neon credentials and endpoint name)*
+
+Omitting the `c-<N>` label routes you to the wrong Neon proxy, which reports a misleading
+`password authentication failed for user '...'` rather than "unknown endpoint".
+
+#### The Fix
+
+1. Copy the connection strings **verbatim** from the Neon console
+   (**Connection Details** → toggle *Pooled connection* for `DATABASE_URL`, off for `DIRECT_URL`).
+   Do not hand-assemble them.
+2. Keep `sslmode=require`. Do **not** use `sslmode=no-verify` — Neon serves a valid Let's Encrypt
+   certificate for `*.c-<N>.<region>.aws.neon.tech`, so verification succeeds on the correct hostname.
+   Reaching for `no-verify` hides the real misconfiguration.
+3. Add `connect_timeout=15` so a cold-started (auto-suspended) Neon compute has time to wake.
+
+**Correct connection string format:**
+```text
+# DATABASE_URL — pooled, used by the app
+postgresql://USER:PASSWORD@ep-XXXX-pooler.c-2.REGION.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=15
+
+# DIRECT_URL — direct, used by Prisma migrations
+postgresql://USER:PASSWORD@ep-XXXX.c-2.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15
+```
+
+#### Verifying a Connection String
+
+Confirm the hostname before redeploying — this is the same check `prisma migrate deploy` performs:
+
+```bash
+# 1. Confirm the certificate matches the hostname you are using
+openssl s_client -starttls postgres -connect <HOST>:5432 -servername <HOST> </dev/null 2>&1 \
+  | grep -E 'subject=|Verify return code'
+# expect: subject=CN=*.c-2.<region>.aws.neon.tech   /   Verify return code: 0 (ok)
+
+# 2. Confirm Prisma can reach it and the schema is current
+DATABASE_URL='<pooled>' DIRECT_URL='<direct>' \
+  npx prisma migrate status --schema=backend/prisma/schema.prisma
+```
 
 ---
 

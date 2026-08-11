@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: free
     rootDir: .
-    buildCommand: npm install && npx prisma generate --schema=backend/prisma/schema.prisma && npx prisma migrate deploy --schema=backend/prisma/schema.prisma
-    startCommand: npm start
+    buildCommand: export DATABASE_URL="${DATABASE_URL}?sslmode=disable" && export DIRECT_URL="${DIRECT_URL}?sslmode=disable" && npm install && npx prisma generate --schema=backend/prisma/schema.prisma && npx prisma migrate deploy --schema=backend/prisma/schema.prisma
+    startCommand: export DATABASE_URL="${DATABASE_URL}?sslmode=disable" && export DIRECT_URL="${DIRECT_URL}?sslmode=disable" && npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV

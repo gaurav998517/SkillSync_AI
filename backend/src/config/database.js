@@ -3,10 +3,27 @@ const { PrismaClient } = require('@prisma/client');
 // Sanitize database connection environment variables (e.g. remove leading/trailing quotes pasted by mistake)
 if (process.env.DATABASE_URL) {
     process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/^["']|["']$/g, '');
+    
+    // For Render internal PostgreSQL connections, append sslmode=disable if not already present
+    // because internal TLS connection fails due to hostname certificate mismatch
+    if (process.env.DATABASE_URL.includes('.render.com') || process.env.DATABASE_URL.includes('-postgres')) {
+        if (!process.env.DATABASE_URL.includes('sslmode=')) {
+            const separator = process.env.DATABASE_URL.includes('?') ? '&' : '?';
+            process.env.DATABASE_URL += `${separator}sslmode=disable`;
+        }
+    }
 }
 if (process.env.DIRECT_URL) {
     process.env.DIRECT_URL = process.env.DIRECT_URL.replace(/^["']|["']$/g, '');
+    
+    if (process.env.DIRECT_URL.includes('.render.com') || process.env.DIRECT_URL.includes('-postgres')) {
+        if (!process.env.DIRECT_URL.includes('sslmode=')) {
+            const separator = process.env.DIRECT_URL.includes('?') ? '&' : '?';
+            process.env.DIRECT_URL += `${separator}sslmode=disable`;
+        }
+    }
 }
+
 
 /**
  * Prisma Client Singleton

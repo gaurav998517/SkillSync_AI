@@ -373,9 +373,8 @@ SkillSync_AI
 Made with ❤️ by
 
 - **Sagar Chhikara**
-- **Anirudh Sharma**
-- **Bhuvnesh**
-- **Chirag**
+- **Karmanya Singh**
+
 
 ---
 
